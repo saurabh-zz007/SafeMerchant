@@ -1,0 +1,8 @@
+backend/myenv/
+backend/.env
+backend/.pytest_cache/
+**/__pycache__/
+frontend/build/
+frontend/.dart_tool/
+frontend/.idea/
+frontend/*.iml

@@ -1,0 +1,38 @@
+-- 1. Core Orders Ledger
+CREATE TABLE orders (
+    order_id VARCHAR(50) PRIMARY KEY,
+    payment_id VARCHAR(50) UNIQUE NOT NULL,
+    customer_email VARCHAR(100) NOT NULL,
+    amount_inr INT NOT NULL,
+    item_description TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. Physical Logistics & Delivery Logs
+CREATE TABLE shipping_logs (
+    tracking_id VARCHAR(50) PRIMARY KEY,
+    order_id VARCHAR(50) NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
+    courier_partner VARCHAR(50) NOT NULL,
+    delivery_status VARCHAR(50) NOT NULL,
+    signed_by VARCHAR(100),
+    delivery_timestamp TIMESTAMP WITH TIME ZONE
+);
+
+-- 3. Customer Interaction Transcripts
+CREATE TABLE customer_communications (
+    ticket_id VARCHAR(50) PRIMARY KEY,
+    order_id VARCHAR(50) NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
+    channel VARCHAR(20) NOT NULL,
+    message_transcript TEXT NOT NULL,
+    logged_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. Authentication & Network Telemetry
+CREATE TABLE risk_signals (
+    signal_id SERIAL PRIMARY KEY,
+    order_id VARCHAR(50) NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
+    ip_address VARCHAR(50) NOT NULL,
+    device_fingerprint VARCHAR(100) NOT NULL,
+    is_2fa_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    account_age_days INT NOT NULL DEFAULT 0
+);

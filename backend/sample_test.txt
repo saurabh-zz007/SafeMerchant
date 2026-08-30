@@ -1,0 +1,109 @@
+{
+  "entity": "event",
+  "account_id": "acc_TestMerchant123",
+  "event": "payment.dispute.created",
+  "contains": ["payment", "dispute"],
+  "payload": {
+    "payment": {
+      "entity": {
+        "id": "pay_XYZ1003",
+        "entity": "payment",
+        "amount": 450000,
+        "currency": "INR",
+        "status": "captured",
+        "order_id": "ORD_1003",
+        "email": "angry_buyer@outlook.com",
+        "contact": "+917777777777"
+      }
+    },
+    "dispute": {
+      "entity": {
+        "id": "disp_C3003",
+        "entity": "dispute",
+        "payment_id": "pay_XYZ1003",
+        "amount": 450000,
+        "currency": "INR",
+        "reason_code": "not_as_described",
+        "reason_description": "Item received was fundamentally different from listing.",
+        "phase": "chargeback",
+        "status": "open",
+        "created_at": 1718881000
+      }
+    }
+  }
+}
+
+
+
+{
+  "entity": "event",
+  "account_id": "acc_TestMerchant123",
+  "event": "payment.dispute.created",
+  "contains": ["payment", "dispute"],
+  "payload": {
+    "payment": {
+      "entity": {
+        "id": "pay_XYZ1002",
+        "entity": "payment",
+        "amount": 1500000,
+        "currency": "INR",
+        "status": "captured",
+        "order_id": "ORD_1002",
+        "email": "hacked_account@yahoo.com",
+        "contact": "+918888888888"
+      }
+    },
+    "dispute": {
+      "entity": {
+        "id": "disp_B2002",
+        "entity": "dispute",
+        "payment_id": "pay_XYZ1002",
+        "amount": 1500000,
+        "currency": "INR",
+        "reason_code": "unauthorized_transaction",
+        "reason_description": "Cardholder does not recognize this charge.",
+        "phase": "fraud",
+        "status": "open",
+        "created_at": 1718880500
+      }
+    }
+  }
+}
+
+
+
+
+{
+  "entity": "event",
+  "account_id": "acc_TestMerchant123",
+  "event": "payment.dispute.created",
+  "contains": ["payment", "dispute"],
+  "payload": {
+    "payment": {
+      "entity": {
+        "id": "pay_XYZ1001",
+        "entity": "payment",
+        "amount": 5297600,
+        "currency": "INR",
+        "status": "captured",
+        "order_id": "ORD_1001",
+        "email": "scammer1@gmail.com",
+        "contact": "+919999999999"
+      }
+    },
+    "dispute": {
+      "entity": {
+        "id": "disp_A1001",
+        "entity": "dispute",
+        "payment_id": "pay_XYZ1001",
+        "amount": 5297600,
+        "currency": "INR",
+        "reason_code": "item_not_received",
+        "reason_description": "Customer claims the package never arrived.",
+        "phase": "chargeback",
+        "status": "open",
+        "created_at": 1718880000
+      }
+    }
+  }
+}

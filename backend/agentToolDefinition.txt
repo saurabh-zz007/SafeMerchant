@@ -1,0 +1,70 @@
+{
+  "type": "function",
+  "function": {
+    "name": "fetch_dispute_evidence",
+    "description": "Fetches all internal merchant records (order details, shipping logs, support history, risk telemetry) tied to a specific order ID or payment ID.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "order_id": {
+          "type": "string",
+          "description": "The unique merchant order ID (e.g., ORD_1001)"
+        },
+        "payment_id": {
+          "type": "string",
+          "description": "The Razorpay payment ID (e.g., pay_XYZ1001)"
+        }
+      },
+      "required": []
+    },
+    "returns": {
+      "type": "object",
+      "properties": {
+        "order": {
+          "type": "object",
+          "properties": {
+            "order_id": {"type": "string"},
+            "payment_id": {"type": "string"},
+            "customer_email": {"type": "string"},
+            "amount_inr": {"type": "integer"},
+            "item_description": {"type": "string"},
+            "created_at": {"type": "string"}
+          }
+        },
+        "shipping": {
+          "type": "object",
+          "nullable": true,
+          "properties": {
+            "tracking_id": {"type": "string"},
+            "courier_partner": {"type": "string"},
+            "delivery_status": {"type": "string"},
+            "signed_by": {"type": "string", "nullable": true},
+            "delivery_timestamp": {"type": "string", "nullable": true}
+          }
+        },
+        "communications": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "ticket_id": {"type": "string"},
+              "channel": {"type": "string"},
+              "message_transcript": {"type": "string"},
+              "logged_at": {"type": "string"}
+            }
+          }
+        },
+        "risk_signals": {
+          "type": "object",
+          "nullable": true,
+          "properties": {
+            "ip_address": {"type": "string"},
+            "device_fingerprint": {"type": "string"},
+            "is_2fa_verified": {"type": "boolean"},
+            "account_age_days": {"type": "integer"}
+          }
+        }
+      }
+    }
+  }
+}
