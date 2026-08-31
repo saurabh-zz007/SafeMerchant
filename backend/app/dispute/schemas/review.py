@@ -29,6 +29,10 @@ class ReviewDecision(BaseModel):
         default="",
         description="Optional free-text reason for the decision",
     )
+    amount_paise: Optional[int] = Field(
+        default=None,
+        description="Optional partial contest amount in paise",
+    )
 
 
 class DisputeListItem(BaseModel):

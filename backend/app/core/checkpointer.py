@@ -18,6 +18,7 @@ import re
 from contextlib import asynccontextmanager
 
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from psycopg_pool import AsyncConnectionPool
 
 from app.core.config import settings
 from app.dispute.agent.graph import build_dispute_graph
@@ -41,14 +42,19 @@ async def checkpointer_context():
     """
     Async context manager that yields a configured AsyncPostgresSaver.
 
-    Enters the ``from_conn_string`` context manager so the underlying
-    psycopg connection pool stays alive for the duration of the app.
-    Calls ``setup()`` to ensure checkpoint tables exist.
+    Manually constructs the connection pool with prepare_threshold=None
+    to disable prepared statements for Transaction pooler (PgBouncer/Supabase),
+    then initializes AsyncPostgresSaver.
     """
     dsn = _to_psycopg_dsn(settings.database_url)
-    logger.info("Initialising LangGraph checkpointer (PostgreSQL)")
+    logger.info("Initialising LangGraph checkpointer connection pool (PostgreSQL)")
 
-    async with AsyncPostgresSaver.from_conn_string(dsn) as checkpointer:
+    async with AsyncConnectionPool(
+        conninfo=dsn,
+        kwargs={"prepare_threshold": None},
+        max_size=10,
+    ) as pool:
+        checkpointer = AsyncPostgresSaver(pool)
         await checkpointer.setup()
         logger.info("LangGraph checkpoint tables ready")
         yield checkpointer

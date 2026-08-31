@@ -5,6 +5,7 @@ Uses asyncpg as the PostgreSQL driver. The engine is created once at
 application startup and shared across all requests.
 """
 
+from sqlalchemy import NullPool
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -19,9 +20,10 @@ from app.core.config import settings
 engine = create_async_engine(
     settings.database_url,
     echo=settings.debug,
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,
+    poolclass=NullPool,
+    connect_args={
+        "statement_cache_size": 0            # Disables the statement cache entirely
+    }
 )
 
 # ── Session Factory ──

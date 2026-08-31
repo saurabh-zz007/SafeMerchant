@@ -288,7 +288,6 @@ class _AccountProfileSection extends StatelessWidget {
       title: 'Account Profile',
       subtitle: 'Operator identity used in audit trails and approvals.',
       children: [
-        // 2. Wrap the profileContent in the blur & block touches
         Stack(
           alignment: Alignment.center,
           children: [
@@ -340,7 +339,6 @@ class _AccountProfileSection extends StatelessWidget {
         
         const SizedBox(height: 18),
         
-        // 4. Leave the Dark Mode toggle OUTSIDE the stack so it remains interactive
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           value: themeProvider.isDarkMode,

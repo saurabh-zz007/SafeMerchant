@@ -244,6 +244,9 @@ class Dispute(Base):
     audit_logs: Mapped[list["DisputeAuditLog"]] = relationship(
         back_populates="dispute", cascade="all, delete-orphan",
     )
+    submission_logs: Mapped[list["DisputeSubmissionLog"]] = relationship(
+        back_populates="dispute", cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
         return f"<Dispute {self.id} status={self.status}>"
@@ -333,6 +336,66 @@ class DisputeAuditLog(Base):
 
     def __repr__(self) -> str:
         return f"<AuditLog dispute={self.dispute_id} field={self.field}>"
+
+
+# ═══════════════════════════════════════════════════════════════════
+# DISPUTE SUBMISSION LOG — log of outbound submissions
+# ═══════════════════════════════════════════════════════════════════
+
+class DisputeSubmissionLog(Base):
+    """
+    Dedicated log table for storing outbound dispute evidence submissions.
+    """
+    __tablename__ = "dispute_submission_log"
+
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True,
+    )
+    dispute_id: Mapped[str] = mapped_column(
+        String(100),
+        ForeignKey("disputes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default="CURRENT_TIMESTAMP",
+        nullable=False,
+    )
+    document_id: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True,
+    )
+    document_upload_payload: Mapped[Optional[dict]] = mapped_column(
+        JSONB, nullable=True,
+    )
+    document_upload_status: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True,
+    )
+    document_upload_response: Mapped[Optional[dict]] = mapped_column(
+        JSONB, nullable=True,
+    )
+    contest_payload: Mapped[Optional[dict]] = mapped_column(
+        JSONB, nullable=True,
+    )
+    contest_status: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True,
+    )
+    contest_response: Mapped[Optional[dict]] = mapped_column(
+        JSONB, nullable=True,
+    )
+    outcome: Mapped[str] = mapped_column(
+        String(50), nullable=False,
+        comment="success | api_rejected_expected | submission_failed",
+    )
+    error_message: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True,
+    )
+
+    # ── Relationships ──
+    dispute: Mapped["Dispute"] = relationship(back_populates="submission_logs")
+
+    def __repr__(self) -> str:
+        return f"<SubmissionLog dispute={self.dispute_id} outcome={self.outcome}>"
 
 
 # ═══════════════════════════════════════════════════════════════════

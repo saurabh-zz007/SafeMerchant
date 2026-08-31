@@ -26,6 +26,7 @@ from app.dispute.service import dispute_service
 from app.dispute.websocket import manager
 from app.dispute import metrics_service
 from app.dispute.models import Dispute
+from app.dispute.submission import submit_dispute_evidence
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -194,6 +195,13 @@ async def process_dispute_and_broadcast(
                 amount_paise=dispute_entity.amount or 0,
             )
 
+            # Trigger outbound evidence submission if contested
+            if case_resolution == "resolved_contested":
+                try:
+                    await submit_dispute_evidence(dispute_id)
+                except Exception as exc:
+                    logger.error("Failed to submit evidence for dispute %s: %s", dispute_id, exc)
+
 async def resume_dispute_and_broadcast(
     dispute_id: str,
     compiled_graph,
@@ -274,6 +282,13 @@ async def resume_dispute_and_broadcast(
                 outcome=outcome,
                 amount_paise=amt or 0,
             )
+
+            # Trigger outbound evidence submission if contested
+            if case_resolution == "resolved_contested":
+                try:
+                    await submit_dispute_evidence(dispute_id)
+                except Exception as exc:
+                    logger.error("Failed to submit evidence for dispute %s: %s", dispute_id, exc)
 
     except Exception as exc:
         logger.exception("Resume failed for dispute %s", dispute_id)
@@ -521,7 +536,13 @@ async def review_dispute(
     # 3. Inject the user's decision into the graph state
     await compiled_graph.aupdate_state(
         config,
-        {"user_decision": {"action": decision.action, "reason": decision.reason}},
+        {
+            "user_decision": {
+                "action": decision.action,
+                "reason": decision.reason,
+                "amount_paise": decision.amount_paise,
+            }
+        },
         as_node=paused_node,
     )
 
@@ -529,12 +550,17 @@ async def review_dispute(
     async with async_session_factory() as session:
         repo = DisputeRepository(session)
         await repo.update_status(dispute_id, "processing")
-        await repo.append_history(dispute_id, {
+        
+        history_entry = {
             "event": "human_review_submitted",
             "action": decision.action,
             "reason": decision.reason,
             "paused_node": paused_node,
-        })
+        }
+        if decision.amount_paise is not None:
+            history_entry["amount_paise"] = decision.amount_paise
+
+        await repo.append_history(dispute_id, history_entry)
 
     # 5. Broadcast review event
     await manager.broadcast_system_event({
