@@ -4,14 +4,22 @@ import 'theme/theme_provider.dart';
 import 'view_models/dashboard_view_model.dart';
 import 'views/main_dashboard_layout.dart';
 
+const String cloudServerUrl = String.fromEnvironment(
+  'CLOUD_SERVER_URL',
+  defaultValue: 'safemerchant.onrender.com',
+);
+const String localServerUrl = String.fromEnvironment(
+  'LOCAL_SERVER_URL',
+  defaultValue: 'localhost:8000',
+);
 const apiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
-  defaultValue: 'http://localhost:8000',
+  defaultValue: 'https://$cloudServerUrl',
 );
 
 const websocketUrl = String.fromEnvironment(
   'WEBSOCKET_URL',
-  defaultValue: 'ws://localhost:8000/ws/dashboard',
+  defaultValue: 'wss://$cloudServerUrl/ws/dashboard',
 );
 
 void main() {

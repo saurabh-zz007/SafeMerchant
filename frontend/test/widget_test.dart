@@ -8,8 +8,8 @@ void main() {
   testWidgets('renders main dashboard layout', (tester) async {
     final themeProvider = ThemeProvider();
     final viewModel = DashboardViewModel(
-      apiBaseUrl: 'http://localhost:8000',
-      websocketUrl: 'ws://localhost:8000/ws/dashboard',
+      apiBaseUrl: 'https://safemerchant.onrender.com',
+      websocketUrl: 'wss://safemerchant.onrender.com/ws/dashboard',
       autoStart: false,
     );
 

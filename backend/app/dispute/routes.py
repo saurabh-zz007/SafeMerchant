@@ -8,10 +8,12 @@ Endpoints:
   GET  /health                        — Health check
 """
 
+
 from __future__ import annotations
 
 import logging
 from typing import Any
+from sqlalchemy import text
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
 
@@ -23,6 +25,7 @@ from app.dispute.schemas.webhook import DisputeWebhookEvent
 from app.dispute.service import dispute_service
 from app.dispute.websocket import manager
 from app.dispute import metrics_service
+from app.dispute.models import Dispute
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -313,6 +316,45 @@ def _safe_serialise(obj: Any) -> Any:
 async def health_check():
     """Liveness probe."""
     return {"status": "healthy", "service": "safemerchant-risk-agent"}
+
+@router.delete(
+    "/admin/reset",
+    status_code=status.HTTP_200_OK,
+    tags=["admin"],
+    summary="Clear all disputes and broadcast UI refresh",
+)
+async def reset_system_database():
+    """
+    Clears all dispute records from the PostgreSQL database using the 
+    async session, then broadcasts a WebSocket event to refresh the UI.
+    """
+    # 1. Open the async session just like your GET endpoint
+    async with async_session_factory() as session:
+        await session.execute(text("""
+            TRUNCATE TABLE 
+                disputes, 
+                dispute_events, 
+                dispute_audit_log, 
+                dispute_metrics_daily, 
+                dispute_breakdowns,
+                checkpoints,
+                checkpoint_blobs,
+                checkpoint_writes
+            RESTART IDENTITY CASCADE;
+        """))
+        await session.commit()
+
+    # 2. Broadcast the reset event to connected Flutter clients
+    await manager.broadcast_system_event({
+        "event": "database_reset",
+        "action": "refresh_ui",
+    })
+
+    # 3. Return success response
+    return {
+        "status": "success",
+        "message": "Database wiped and frontend refresh triggered."
+    }
 
 
 @router.post(
