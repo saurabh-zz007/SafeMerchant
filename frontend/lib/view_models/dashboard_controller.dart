@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
 
 import '../models/dashboard_event.dart';
 import '../models/dispute.dart';
@@ -16,10 +17,8 @@ enum DashboardConnectionStatus {
   error,
 }
 
-class DashboardViewModel extends ChangeNotifier {
-  DashboardViewModel({
-    required this.apiBaseUrl,
-    required this.websocketUrl,
+class DashboardController extends GetxController {
+  DashboardController({
     DisputeApiService? apiService,
     ServerActivitySocketService? socketService,
     bool autoStart = true,
@@ -30,8 +29,17 @@ class DashboardViewModel extends ChangeNotifier {
     }
   }
 
-  final String apiBaseUrl;
-  final String websocketUrl;
+  bool _useLocalServer = true;
+  bool get useLocalServer => _useLocalServer;
+
+  String get apiBaseUrl => _useLocalServer
+      ? 'http://${const String.fromEnvironment('LOCAL_SERVER_URL', defaultValue: 'localhost:8000')}'
+      : 'https://${const String.fromEnvironment('CLOUD_SERVER_URL', defaultValue: 'safemerchant.onrender.com')}';
+
+  String get websocketUrl => _useLocalServer
+      ? 'ws://${const String.fromEnvironment('LOCAL_SERVER_URL', defaultValue: 'localhost:8000')}/ws/dashboard'
+      : 'wss://${const String.fromEnvironment('CLOUD_SERVER_URL', defaultValue: 'safemerchant.onrender.com')}/ws/dashboard';
+
   final DisputeApiService _apiService;
   final ServerActivitySocketService _socketService;
 
@@ -51,6 +59,7 @@ class DashboardViewModel extends ChangeNotifier {
   bool _isSubmittingReview = false;
   bool _isLoadingMetrics = false;
   bool _isEditingDispute = false;
+  bool _isResettingDatabase = false;
   Map<String, dynamic>? _pendingReviewPayload;
 
   DashboardConnectionStatus get connectionStatus => _connectionStatus;
@@ -66,6 +75,7 @@ class DashboardViewModel extends ChangeNotifier {
   bool get isSubmittingReview => _isSubmittingReview;
   bool get isLoadingMetrics => _isLoadingMetrics;
   bool get isEditingDispute => _isEditingDispute;
+  bool get isResettingDatabase => _isResettingDatabase;
   Map<String, dynamic>? get pendingReviewPayload => _pendingReviewPayload;
   bool get isBusy =>
       _connectionStatus == DashboardConnectionStatus.loading ||
@@ -144,17 +154,71 @@ class DashboardViewModel extends ChangeNotifier {
     await start();
   }
 
+  Future<void> setUseLocalServer(bool value) async {
+    if (_useLocalServer == value) return;
+    _useLocalServer = value;
+    _prependEvent(
+      DashboardEvent(
+        receivedAt: DateTime.now(),
+        type: 'env_switch',
+        title: 'Environment Switched',
+        description: 'Switched environment to ${value ? 'Local' : 'Cloud'}. Reconnecting...',
+        tone: DashboardEventTone.info,
+      ),
+    );
+    update();
+    await reconnect();
+  }
+
+  Future<void> resetDatabase() async {
+    if (_isResettingDatabase) return;
+    _isResettingDatabase = true;
+    _errorMessage = null;
+    update();
+
+    try {
+      final response = await _apiService.resetDatabase(apiBaseUrl);
+      _prependEvent(
+        DashboardEvent(
+          receivedAt: DateTime.now(),
+          type: 'database_reset',
+          title: 'Database Wiped',
+          description: response['message']?.toString() ?? 'Database has been reset successfully.',
+          tone: DashboardEventTone.success,
+        ),
+      );
+      await _reloadDisputes();
+      _selectedDisputeId = null;
+      _selectedAuditEntries = [];
+      unawaited(refreshMetrics());
+    } catch (error) {
+      _errorMessage = error.toString();
+      _prependEvent(
+        DashboardEvent(
+          receivedAt: DateTime.now(),
+          type: 'reset_error',
+          title: 'Database Reset Failed',
+          description: error.toString(),
+          tone: DashboardEventTone.error,
+        ),
+      );
+    } finally {
+      _isResettingDatabase = false;
+      update();
+    }
+  }
+
   void selectDispute(String disputeId) {
     _selectedDisputeId = disputeId;
     _selectedAuditEntries = [];
     unawaited(refreshSelectedAudit());
-    notifyListeners();
+    update();
   }
 
   Future<void> refreshMetrics() async {
     _isLoadingMetrics = true;
     _errorMessage = null;
-    notifyListeners();
+    update();
 
     final now = DateTime.now();
     final from = DateTime(now.year, now.month, now.day)
@@ -201,7 +265,7 @@ class DashboardViewModel extends ChangeNotifier {
       );
     } finally {
       _isLoadingMetrics = false;
-      notifyListeners();
+      update();
     }
   }
 
@@ -216,10 +280,10 @@ class DashboardViewModel extends ChangeNotifier {
         baseUrl: apiBaseUrl,
         disputeId: dispute.id,
       );
-      notifyListeners();
+      update();
     } catch (_) {
       _selectedAuditEntries = [];
-      notifyListeners();
+      update();
     }
   }
 
@@ -233,7 +297,7 @@ class DashboardViewModel extends ChangeNotifier {
         _disputes[index] = dispute;
       }
       _sortDisputes();
-      notifyListeners();
+      update();
     } catch (e) {
       debugPrint('Error refreshing dispute: $e');
     }
@@ -241,7 +305,7 @@ class DashboardViewModel extends ChangeNotifier {
 
   void clearPendingReview() {
     _pendingReviewPayload = null;
-    notifyListeners();
+    update();
   }
 
   Future<void> submitReview(String action, {String? disputeId}) =>
@@ -257,7 +321,7 @@ class DashboardViewModel extends ChangeNotifier {
 
     _isSubmittingReview = true;
     _errorMessage = null;
-    notifyListeners();
+    update();
 
     try {
       final response = await _apiService.submitReview(
@@ -266,14 +330,14 @@ class DashboardViewModel extends ChangeNotifier {
         action: action,
         reason: reason,
       );
-      final update = _extractDisputePayload(response) ??
+      final updatePayload = _extractDisputePayload(response) ??
           {
             'dispute_id': id,
             'status': action == 'accept' ? 'evidence_submitted' : 'lost',
             'current_node': action,
             'requires_human_review': false,
           };
-      _upsertDispute(update);
+      _upsertDispute(updatePayload);
       if (id == _pendingReviewPayload?['dispute_id']?.toString()) {
         _pendingReviewPayload = null;
       }
@@ -306,7 +370,7 @@ class DashboardViewModel extends ChangeNotifier {
       );
     } finally {
       _isSubmittingReview = false;
-      notifyListeners();
+      update();
     }
   }
 
@@ -324,7 +388,7 @@ class DashboardViewModel extends ChangeNotifier {
 
     _isEditingDispute = true;
     _errorMessage = null;
-    notifyListeners();
+    update();
 
     try {
       await _apiService.patchDispute(
@@ -363,16 +427,16 @@ class DashboardViewModel extends ChangeNotifier {
       );
     } finally {
       _isEditingDispute = false;
-      notifyListeners();
+      update();
     }
   }
 
   @override
-  void dispose() {
+  void onClose() {
     unawaited(_messageSubscription?.cancel());
     unawaited(_socketService.dispose());
     _apiService.close();
-    super.dispose();
+    super.onClose();
   }
 
   Future<void> _connectSocket() async {
@@ -418,6 +482,16 @@ class DashboardViewModel extends ChangeNotifier {
     _prependEvent(event);
 
     final eventType = event.type.toLowerCase();
+    
+    // Intercept database_reset event from websocket
+    if (eventType == 'database_reset') {
+      unawaited(_reloadDisputes());
+      _selectedDisputeId = null;
+      _selectedAuditEntries = [];
+      unawaited(refreshMetrics());
+      return;
+    }
+
     if (eventType == 'metrics_stale') {
       unawaited(refreshMetrics());
       return;
@@ -429,9 +503,9 @@ class DashboardViewModel extends ChangeNotifier {
         eventType == 'execution_completed' ||
         eventType == 'review_submitted' ||
         eventType == 'execution_error') {
-      final update = _extractDisputePayload(payload) ?? payload;
+      final updatePayload = _extractDisputePayload(payload) ?? payload;
       final decoratedUpdate = {
-        ...update,
+        ...updatePayload,
         if (eventType == 'human_review_required') 'requires_human_review': true,
         if (eventType == 'human_review_required') 'status': 'awaiting_review',
         if (eventType == 'execution_completed') 'status': 'resolved',
@@ -454,24 +528,24 @@ class DashboardViewModel extends ChangeNotifier {
       ..clear()
       ..addAll(disputes);
     _sortDisputes();
-    notifyListeners();
+    update();
   }
 
-  void _upsertDispute(Map<String, dynamic> update) {
-    final id = _readDisputeId(update);
+  void _upsertDispute(Map<String, dynamic> updatePayload) {
+    final id = _readDisputeId(updatePayload);
     if (id == null) {
       return;
     }
 
     final index = _disputes.indexWhere((dispute) => dispute.id == id);
     if (index == -1) {
-      _disputes.add(Dispute.fromJson(update));
+      _disputes.add(Dispute.fromJson(updatePayload));
     } else {
-      _disputes[index] = _disputes[index].merge(update);
+      _disputes[index] = _disputes[index].merge(updatePayload);
     }
     _sortDisputes();
     _selectedDisputeId ??= id;
-    notifyListeners();
+    update();
   }
 
   Map<String, dynamic>? _extractDisputePayload(Map<String, dynamic> payload) {
@@ -514,7 +588,7 @@ class DashboardViewModel extends ChangeNotifier {
 
   void _setConnectionStatus(DashboardConnectionStatus status) {
     _connectionStatus = status;
-    notifyListeners();
+    update();
   }
 
   void _prependEvent(DashboardEvent event) {
@@ -522,6 +596,6 @@ class DashboardViewModel extends ChangeNotifier {
     if (_events.length > 100) {
       _events.removeLast();
     }
-    notifyListeners();
+    update();
   }
 }

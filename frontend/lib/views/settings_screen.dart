@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'dart:ui';
 
 import '../theme/theme_provider.dart';
+import '../view_models/dashboard_controller.dart';
 
-enum SettingsSection { account, riskEngine, apiConfiguration }
+enum SettingsSection { account, riskEngine, apiConfiguration, serverSettings }
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key, required this.themeProvider});
+  const SettingsScreen({
+    super.key,
+    required this.themeProvider,
+    required this.dashboardController,
+  });
 
   final ThemeProvider themeProvider;
+  final DashboardController dashboardController;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -80,6 +88,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onThresholdChanged: (value) {
                         setState(() => _autoAcceptThreshold = value);
                       },
+                      dashboardController: widget.dashboardController,
                     );
 
                     if (stacked) {
@@ -146,6 +155,12 @@ class _SettingsNavigation extends StatelessWidget {
             selected: selected == SettingsSection.apiConfiguration,
             onPressed: () => onSelected(SettingsSection.apiConfiguration),
           ),
+          _SettingsNavItem(
+            icon: Icons.dns_outlined,
+            label: 'Server Settings',
+            selected: selected == SettingsSection.serverSettings,
+            onPressed: () => onSelected(SettingsSection.serverSettings),
+          ),
         ],
       ),
     );
@@ -162,6 +177,7 @@ class _SettingsContent extends StatelessWidget {
     required this.autoAcceptThreshold,
     required this.themeProvider,
     required this.onThresholdChanged,
+    required this.dashboardController,
   });
 
   final SettingsSection section;
@@ -172,6 +188,7 @@ class _SettingsContent extends StatelessWidget {
   final double autoAcceptThreshold;
   final ThemeProvider themeProvider;
   final ValueChanged<double> onThresholdChanged;
+  final DashboardController dashboardController;
 
   @override
   Widget build(BuildContext context) {
@@ -189,11 +206,15 @@ class _SettingsContent extends StatelessWidget {
           webhookController: webhookController,
           secretController: secretController,
         ),
+      SettingsSection.serverSettings => _ServerSettingsSection(
+          dashboardController: dashboardController,
+        ),
     };
 
     return _FlatBox(child: child);
   }
 }
+
 
 class _AccountProfileSection extends StatelessWidget {
   const _AccountProfileSection({
@@ -204,14 +225,14 @@ class _AccountProfileSection extends StatelessWidget {
 
   final TextEditingController nameController;
   final TextEditingController emailController;
-  final ThemeProvider themeProvider;
+  final ThemeProvider themeProvider; 
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return _SectionBody(
-      title: 'Account Profile',
-      subtitle: 'Operator identity used in audit trails and approvals.',
+
+    final profileContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
@@ -220,7 +241,7 @@ class _AccountProfileSection extends StatelessWidget {
               height: 58,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                color: theme.colorScheme.primary.withValues(alpha: 0.12), 
                 border: Border.all(color: theme.dividerColor),
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -260,7 +281,66 @@ class _AccountProfileSection extends StatelessWidget {
             ),
           ],
         ),
+      ],
+    );
+
+    return _SectionBody(
+      title: 'Account Profile',
+      subtitle: 'Operator identity used in audit trails and approvals.',
+      children: [
+        // 2. Wrap the profileContent in the blur & block touches
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            AbsorbPointer(
+              absorbing: true,
+              child: ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 3.0, sigmaY: 3.0),
+                child: Opacity(
+                  opacity: 0.7,
+                  child: profileContent,
+                ),
+              ),
+            ),
+            // 3. The "Coming Soon" Badge over the blurred content
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  )
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.construction, 
+                    size: 32,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Coming Soon',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        
         const SizedBox(height: 18),
+        
+        // 4. Leave the Dark Mode toggle OUTSIDE the stack so it remains interactive
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           value: themeProvider.isDarkMode,
@@ -276,6 +356,7 @@ class _AccountProfileSection extends StatelessWidget {
   }
 }
 
+
 class _RiskEngineSection extends StatelessWidget {
   const _RiskEngineSection({
     required this.threshold,
@@ -288,9 +369,9 @@ class _RiskEngineSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return _SectionBody(
-      title: 'Risk Engine',
-      subtitle: 'Automation policy controls for dispute handling.',
+
+    final settingsContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
@@ -315,7 +396,7 @@ class _RiskEngineSection extends StatelessWidget {
           divisions: 100,
           value: threshold,
           label: '${threshold.round()}%',
-          onChanged: onThresholdChanged,
+          onChanged: onThresholdChanged, 
         ),
         const SizedBox(height: 8),
         Text(
@@ -334,6 +415,60 @@ class _RiskEngineSection extends StatelessWidget {
           detail: 'Notify operators when response windows are at risk.',
           value: true,
           onChanged: (_) {},
+        ),
+      ],
+    );
+
+    return _SectionBody(
+      title: 'Risk Engine',
+      subtitle: 'Automation policy controls for dispute handling.',
+      children: [
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            AbsorbPointer(
+              absorbing: true,
+              child: ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 3.0, sigmaY: 3.0),
+                child: Opacity(
+                  opacity: 0.7, 
+                  child: settingsContent,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  )
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.construction, // or Icons.handyman / Icons.auto_awesome
+                    size: 32,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Coming Soon',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -552,6 +687,212 @@ class _FlatBox extends StatelessWidget {
       ),
       padding: padding,
       child: child,
+    );
+  }
+}
+
+class _ServerSettingsSection extends StatelessWidget {
+  const _ServerSettingsSection({required this.dashboardController});
+
+  final DashboardController dashboardController;
+
+  void _confirmReset(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Theme.of(context).colorScheme.error),
+              const SizedBox(width: 8),
+              const Text('Confirm System Reset'),
+            ],
+          ),
+          content: const Text(
+            'Are you sure you want to reset all database states? This will wipe all disputes, metrics, daily summaries, checkpointers, and audit logs. This action is irreversible.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                dashboardController.resetDatabase().then((_) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          dashboardController.errorMessage ??
+                              'Database reset successful and UI refreshed.',
+                        ),
+                        backgroundColor: dashboardController.errorMessage != null
+                            ? Theme.of(context).colorScheme.error
+                            : Theme.of(context).colorScheme.primary,
+                      ),
+                    );
+                  }
+                });
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+              child: const Text('Reset Everything'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GetBuilder<DashboardController>(
+      init: dashboardController,
+      builder: (controller) {
+        return _SectionBody(
+          title: 'Server Settings',
+          subtitle: 'Configure target backend environments and manage database operations.',
+          children: [
+            Text('Backend Environment', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 6),
+            Text(
+              'Select whether the dashboard connects to your local development server or the cloud staging deployment.',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment<bool>(
+                  value: true,
+                  icon: Icon(Icons.computer_outlined, size: 16),
+                  label: Text('Local Server'),
+                ),
+                ButtonSegment<bool>(
+                  value: false,
+                  icon: Icon(Icons.cloud_outlined, size: 16),
+                  label: Text('Cloud Server'),
+                ),
+              ],
+              selected: {controller.useLocalServer},
+              onSelectionChanged: (newSelection) {
+                if (newSelection.isNotEmpty) {
+                  controller.setUseLocalServer(newSelection.first);
+                }
+              },
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.04),
+                border: Border.all(color: theme.dividerColor),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _UrlDetailRow(
+                    label: 'API Base URL:',
+                    value: controller.apiBaseUrl,
+                  ),
+                  const SizedBox(height: 8),
+                  _UrlDetailRow(
+                    label: 'WebSocket URL:',
+                    value: controller.websocketUrl,
+                  ),
+                  const SizedBox(height: 8),
+                  _UrlDetailRow(
+                    label: 'Status:',
+                    value: controller.connectionStatus.name.toUpperCase(),
+                    valueColor: controller.connectionStatus == DashboardConnectionStatus.connected
+                        ? Colors.green
+                        : controller.connectionStatus == DashboardConnectionStatus.error
+                            ? theme.colorScheme.error
+                            : theme.colorScheme.secondary,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+            Divider(color: theme.dividerColor),
+            const SizedBox(height: 18),
+            Text(
+              'Database Administration',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Clear PostgreSQL database states, reset LangGraph checkpoint savers, and broadcast refreshes to all other client screens.',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: controller.isResettingDatabase
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : FilledButton.icon(
+                      onPressed: () => _confirmReset(context),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: theme.colorScheme.error,
+                        foregroundColor: theme.colorScheme.onError,
+                      ),
+                      icon: const Icon(Icons.delete_forever_outlined, size: 18),
+                      label: const Text('Reset System Database'),
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _UrlDetailRow extends StatelessWidget {
+  const _UrlDetailRow({
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
+
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 120,
+          child: Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Expanded(
+          child: SelectableText(
+            value,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontFamily: 'Courier New',
+              color: valueColor ?? theme.textTheme.bodyMedium?.color,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

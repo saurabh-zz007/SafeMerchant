@@ -161,6 +161,21 @@ class DisputeApiService {
     return decoded is Map<String, dynamic> ? decoded : const {};
   }
 
+  Future<Map<String, dynamic>> resetDatabase(String baseUrl) async {
+    final request = await _client.deleteUrl(
+      Uri.parse('$baseUrl/api/v1/admin/reset'),
+    );
+    final response = await request.close();
+    final body = await response.transform(utf8.decoder).join();
+    _ensureSuccess(response.statusCode, body);
+
+    if (body.trim().isEmpty) {
+      return const {};
+    }
+    final decoded = jsonDecode(body);
+    return decoded is Map<String, dynamic> ? decoded : const {};
+  }
+
   void close() {
     _client.close(force: true);
   }

@@ -1,20 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:safemerchant_frontend/theme/theme_provider.dart';
-import 'package:safemerchant_frontend/view_models/dashboard_view_model.dart';
+import 'package:safemerchant_frontend/view_models/dashboard_controller.dart';
 import 'package:safemerchant_frontend/views/main_dashboard_layout.dart';
 
 void main() {
   testWidgets('renders main dashboard layout', (tester) async {
-    final themeProvider = ThemeProvider();
-    final viewModel = DashboardViewModel(
-      apiBaseUrl: 'https://safemerchant.onrender.com',
-      websocketUrl: 'wss://safemerchant.onrender.com/ws/dashboard',
-      autoStart: false,
-    );
+    final themeProvider = Get.put(ThemeProvider());
+    final viewModel = Get.put(DashboardController(autoStart: false));
 
     await tester.pumpWidget(
-      MaterialApp(
+      GetMaterialApp(
         home: MainDashboardLayout(
           viewModel: viewModel,
           themeProvider: themeProvider,

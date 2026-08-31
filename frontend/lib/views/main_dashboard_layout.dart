@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import '../models/dispute.dart';
 import '../theme/theme_provider.dart';
 import '../utils/display_mappings.dart';
-import '../view_models/dashboard_view_model.dart';
+import '../view_models/dashboard_controller.dart';
 import 'settings_screen.dart';
 
 enum DashboardSection { overview, disputes, analytics, settings }
@@ -16,7 +17,7 @@ class MainDashboardLayout extends StatefulWidget {
     required this.themeProvider,
   });
 
-  final DashboardViewModel viewModel;
+  final DashboardController viewModel;
   final ThemeProvider themeProvider;
 
   @override
@@ -36,7 +37,6 @@ class _MainDashboardLayoutState extends State<MainDashboardLayout> {
   @override
   void dispose() {
     widget.viewModel.removeListener(_onViewModelChanged);
-    widget.viewModel.dispose();
     super.dispose();
   }
 
@@ -82,16 +82,19 @@ class _MainDashboardLayoutState extends State<MainDashboardLayout> {
                 ),
                 Divider(height: 1, color: theme.dividerColor),
                 Expanded(
-                  child: AnimatedBuilder(
-                    animation: widget.viewModel,
-                    builder: (context, _) {
+                  child: GetBuilder<DashboardController>(
+                    init: widget.viewModel,
+                    builder: (viewModel) {
                       return IndexedStack(
                         index: _section.index,
                         children: [
-                          OverviewScreen(viewModel: widget.viewModel),
-                          DisputesScreen(viewModel: widget.viewModel),
-                          AnalyticsScreen(viewModel: widget.viewModel),
-                          SettingsScreen(themeProvider: widget.themeProvider),
+                          OverviewScreen(viewModel: viewModel),
+                          DisputesScreen(viewModel: viewModel),
+                          AnalyticsScreen(viewModel: viewModel),
+                          SettingsScreen(
+                            themeProvider: widget.themeProvider,
+                            dashboardController: viewModel,
+                          ),
                         ],
                       );
                     },
@@ -112,7 +115,7 @@ class _HilReviewDialog extends StatefulWidget {
     required this.payload,
   });
 
-  final DashboardViewModel viewModel;
+  final DashboardController viewModel;
   final Map<String, dynamic> payload;
 
   @override
@@ -466,7 +469,7 @@ class _DisputeDetailsDialog extends StatefulWidget {
     required this.disputeId,
   });
 
-  final DashboardViewModel viewModel;
+  final DashboardController viewModel;
   final String disputeId;
 
   @override
@@ -1241,7 +1244,7 @@ class _TopBar extends StatelessWidget {
   });
 
   final DashboardSection section;
-  final DashboardViewModel viewModel;
+  final DashboardController viewModel;
   final ThemeProvider themeProvider;
 
   @override
@@ -1326,7 +1329,7 @@ class _TopBar extends StatelessWidget {
 class OverviewScreen extends StatelessWidget {
   const OverviewScreen({super.key, required this.viewModel});
 
-  final DashboardViewModel viewModel;
+  final DashboardController viewModel;
 
   @override
   Widget build(BuildContext context) {
@@ -1424,7 +1427,7 @@ class OverviewScreen extends StatelessWidget {
 class DisputesScreen extends StatelessWidget {
   const DisputesScreen({super.key, required this.viewModel});
 
-  final DashboardViewModel viewModel;
+  final DashboardController viewModel;
 
   @override
   Widget build(BuildContext context) {
@@ -1498,7 +1501,7 @@ class DisputesScreen extends StatelessWidget {
 class AnalyticsScreen extends StatelessWidget {
   const AnalyticsScreen({super.key, required this.viewModel});
 
-  final DashboardViewModel viewModel;
+  final DashboardController viewModel;
 
   @override
   Widget build(BuildContext context) {

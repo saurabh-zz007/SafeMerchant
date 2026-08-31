@@ -1,26 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import 'theme/theme_provider.dart';
-import 'view_models/dashboard_view_model.dart';
+import 'view_models/dashboard_controller.dart';
 import 'views/main_dashboard_layout.dart';
-
-const String cloudServerUrl = String.fromEnvironment(
-  'CLOUD_SERVER_URL',
-  defaultValue: 'safemerchant.onrender.com',
-);
-const String localServerUrl = String.fromEnvironment(
-  'LOCAL_SERVER_URL',
-  defaultValue: 'localhost:8000',
-);
-const apiBaseUrl = String.fromEnvironment(
-  'API_BASE_URL',
-  defaultValue: 'https://$cloudServerUrl',
-);
-
-const websocketUrl = String.fromEnvironment(
-  'WEBSOCKET_URL',
-  defaultValue: 'wss://$cloudServerUrl/ws/dashboard',
-);
 
 void main() {
   runApp(const SafeMerchantApp());
@@ -35,37 +18,28 @@ class SafeMerchantApp extends StatefulWidget {
 
 class _SafeMerchantAppState extends State<SafeMerchantApp> {
   late final ThemeProvider _themeProvider;
-  late final DashboardViewModel _viewModel;
+  late final DashboardController _viewModel;
 
   @override
   void initState() {
     super.initState();
-    _themeProvider = ThemeProvider();
-    _viewModel = DashboardViewModel(
-      apiBaseUrl: apiBaseUrl,
-      websocketUrl: websocketUrl,
-    );
-  }
-
-  @override
-  void dispose() {
-    _themeProvider.dispose();
-    super.dispose();
+    _themeProvider = Get.put(ThemeProvider());
+    _viewModel = Get.put(DashboardController());
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _themeProvider,
-      builder: (context, _) {
-        return MaterialApp(
+    return GetBuilder<ThemeProvider>(
+      init: _themeProvider,
+      builder: (themeProvider) {
+        return GetMaterialApp(
           debugShowCheckedModeBanner: false,
           title: 'SafeMerchant Dashboard',
           theme: ThemeProvider.lightTheme,
           darkTheme: ThemeProvider.darkTheme,
-          themeMode: _themeProvider.themeMode,
+          themeMode: themeProvider.themeMode,
           home: MainDashboardLayout(
-            themeProvider: _themeProvider,
+            themeProvider: themeProvider,
             viewModel: _viewModel,
           ),
         );
