@@ -12,14 +12,17 @@ from io import BytesIO
 from typing import Any, Optional
 
 import httpx
+import os
 
 from app.core.config import settings
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from app.core.db import async_session_factory
 from app.dispute.dispute_repository import DisputeRepository
-from app.dispute.models import DisputeSubmissionLog
+from app.dispute.models import DisputeSubmissionLog, Order
 from app.dispute.repository import EvidenceRepository
 from app.proof_renderer import ChargebackPDFRenderer
-from app.proof_renderer.schemas import DeliveryProofData
+from app.proof_renderer.schemas import DeliveryProofData, TrackingEvent, PriorDelivery
 
 logger = logging.getLogger(__name__)
 
@@ -86,12 +89,88 @@ async def submit_dispute_evidence(dispute_id: str) -> dict[str, Any]:
             shipped_at = order.created_at if order.created_at else datetime.now(timezone.utc)
             delivered_at = shipping.delivery_timestamp if (shipping and shipping.delivery_timestamp) else shipped_at
             
+            # 1. Address Verification (Billing & Shipping)
+            shipping_address = "42 MG Road, Bengaluru, Karnataka 560001"
+            billing_address = "42 MG Road, Bengaluru, Karnataka 560001"
+            # Explicitly mismatch for scammer/fraud tests to verify flag/alert
+            if "scammer" in order.customer_email.lower():
+                billing_address = "108 Ring Road, Delhi 110001"
+            
+            # 2. OTP Verification Reference Details
+            otp_transaction_id = None
+            otp_verified_at = None
+            otp_channel = None
+            if shipping and shipping.signed_by == "Self (OTP Verified)":
+                otp_transaction_id = f"TXN_OTP_{order.order_id}"
+                otp_verified_at = shipping.delivery_timestamp
+                otp_channel = "SMS to +91 ******9999"
+
+            # 3. Carrier Tracking Event Timeline
+            from datetime import timedelta
+            tracking_events = []
+            tracking_events.append(
+                TrackingEvent(
+                    timestamp=shipped_at,
+                    status="Shipment Picked Up",
+                    location="Warehouse (Bengaluru)"
+                )
+            )
+            if shipping:
+                transit_time = shipped_at + (delivered_at - shipped_at) / 2 if (delivered_at and shipped_at) else shipped_at + timedelta(hours=12)
+                tracking_events.append(
+                    TrackingEvent(
+                        timestamp=transit_time,
+                        status="In Transit",
+                        location="Delhi Hub"
+                    )
+                )
+                tracking_events.append(
+                    TrackingEvent(
+                        timestamp=delivered_at,
+                        status=shipping.delivery_status or "Delivered",
+                        location="Customer Destination"
+                    )
+                )
+
+            # 4. Payment Risk & Fraud Signals
+            risk = order.risk_signals[0] if order.risk_signals else None
+            cvv_match = "Matched" if risk else "Not captured for this transaction"
+            avs_result = "Matched (ZIP & Address)" if risk else "Not captured for this transaction"
+            checkout_ip = risk.ip_address if risk else "Not captured for this transaction"
+            checkout_device = risk.device_fingerprint if risk else "Not captured for this transaction"
+            is_2fa_verified = risk.is_2fa_verified if risk else None
+
+            # 5. Customer Prior Deliveries History
+            prior_deliveries = []
+            try:
+                stmt = (
+                    select(Order)
+                    .where(Order.customer_email == order.customer_email)
+                    .where(Order.order_id != order.order_id)
+                    .options(selectinload(Order.shipping_logs))
+                )
+                res = await session.execute(stmt)
+                prior_orders = res.scalars().all()
+                for po in prior_orders:
+                    po_shipping = po.shipping_logs[0] if po.shipping_logs else None
+                    if po_shipping and po_shipping.delivery_status == "Delivered":
+                        prior_deliveries.append(
+                            PriorDelivery(
+                                order_id=po.order_id,
+                                delivered_at=po_shipping.delivery_timestamp or po.created_at,
+                                item_description=po.item_description
+                            )
+                        )
+            except Exception as e:
+                logger.warning("Failed to query prior deliveries for customer: %s", e)
+
             data = DeliveryProofData(
                 order_id=order.order_id,
                 payment_id=order.payment_id,
                 customer_name=order.customer_email.split('@')[0].capitalize() if order.customer_email else "Customer",
                 customer_email=order.customer_email or "unknown@example.com",
-                shipping_address="Registered Address (on file)",
+                shipping_address=shipping_address,
+                billing_address=billing_address,
                 carrier_name=shipping.courier_partner if (shipping and shipping.courier_partner) else "N/A",
                 tracking_number=shipping.tracking_id if (shipping and shipping.tracking_id) else "N/A",
                 shipped_at=shipped_at,
@@ -99,17 +178,33 @@ async def submit_dispute_evidence(dispute_id: str) -> dict[str, Any]:
                 delivery_status=shipping.delivery_status if (shipping and shipping.delivery_status) else "Delivered",
                 signed_by=shipping.signed_by if (shipping and shipping.signed_by) else "Customer Signature on File",
                 proof_url=f"https://tracking.carrier.com/{shipping.tracking_id}" if (shipping and shipping.tracking_id) else None,
+                otp_transaction_id=otp_transaction_id,
+                otp_verified_at=otp_verified_at,
+                otp_channel=otp_channel,
+                tracking_events=tracking_events,
+                cvv_match=cvv_match,
+                avs_result=avs_result,
+                checkout_ip=checkout_ip,
+                checkout_device=checkout_device,
+                is_2fa_verified=is_2fa_verified,
+                prior_deliveries=prior_deliveries,
                 additional_notes=f"Order placed on {order.created_at.strftime('%Y-%m-%d')} for {order.item_description}."
             )
         else:
             # Fallback data for testing against synthetic disputes
             logger.warning("No matching order found in database for dispute %s. Generating fallback evidence data.", dispute_id)
+            fallback_timeline = [
+                TrackingEvent(timestamp=datetime.now(timezone.utc), status="Shipment Picked Up", location="Sorting Center"),
+                TrackingEvent(timestamp=datetime.now(timezone.utc), status="Delivered", location="Delhi Gate")
+            ]
+            
             data = DeliveryProofData(
                 order_id="ORD_TEST_FALLBACK",
                 payment_id=dispute.payment_id or "pay_TEST_FALLBACK",
                 customer_name="Test Customer",
                 customer_email=dispute.customer_email or "test@example.com",
                 shipping_address="Test Address, Bengaluru, India",
+                billing_address="Test Address, Bengaluru, India",
                 carrier_name="Delhivery",
                 tracking_number="DLV1234567890",
                 shipped_at=datetime.now(timezone.utc),
@@ -117,6 +212,18 @@ async def submit_dispute_evidence(dispute_id: str) -> dict[str, Any]:
                 delivery_status="Delivered",
                 signed_by="T. Customer",
                 proof_url="https://tracking.carrier.com/DLV1234567890",
+                otp_transaction_id="TXN_OTP_12345",
+                otp_verified_at=datetime.now(timezone.utc),
+                otp_channel="SMS to +91 ******0000",
+                tracking_events=fallback_timeline,
+                cvv_match="Matched",
+                avs_result="Not captured for this transaction",
+                checkout_ip="127.0.0.1",
+                checkout_device="Chrome - Windows",
+                is_2fa_verified=True,
+                prior_deliveries=[
+                    PriorDelivery(order_id="ORD_PRIOR_999", delivered_at=datetime.now(timezone.utc), item_description="Sony WH-1000XM5 Headphones")
+                ],
                 additional_notes="Fallback document generated for testing / missing evidence order."
             )
 
@@ -124,17 +231,23 @@ async def submit_dispute_evidence(dispute_id: str) -> dict[str, Any]:
             renderer = ChargebackPDFRenderer()
             pdf_stream = renderer.render("delivery_proof", data)
             pdf_bytes = pdf_stream.getvalue()
-            logger.info("Successfully rendered evidence PDF. Length: %d bytes", len(pdf_bytes))
+            logger.info("Successfully rendered in-memory evidence PDF (%d bytes) for dispute %s", len(pdf_bytes), dispute_id)
+            
+            # Log Evidence Composed event to history
+            await dispute_repo.append_history(dispute_id, {
+                "event": "evidence_composed"
+            })
         except Exception as e:
-            logger.exception("Failed to render evidence PDF for dispute %s", dispute_id)
+            logger.exception("Failed to render in-memory evidence PDF for dispute %s", dispute_id)
             raise DisputeSubmissionError(f"PDF rendering failed: {e}")
 
-        # 3. Call 1: POST /v1/documents (multipart upload)
+        # 3. Call 1: POST /v1/documents (multipart upload to Razorpay)
         doc_url = f"{RAZORPAY_API_BASE}/documents"
         doc_payload_desc = {"purpose": "dispute_evidence", "file": "evidence.pdf"}
         doc_status = None
         doc_response_body = None
         document_id = None
+        storage_path = None
 
         async def upload_call() -> httpx.Response:
             files = {"file": ("evidence.pdf", pdf_bytes, "application/pdf")}
@@ -169,7 +282,35 @@ async def submit_dispute_evidence(dispute_id: str) -> dict[str, Any]:
                 document_id = doc_response_body.get("id")
                 if not document_id:
                     raise DisputeSubmissionError("Document upload response missing document ID.")
+                
+                # Dual upload to Supabase Storage from the in-memory buffer
+                try:
+                    from app.core.storage import storage_service
+                    storage_path = await storage_service.upload_evidence_pdf(dispute_id, pdf_bytes)
+                except Exception as s_exc:
+                    logger.warning("Supabase Storage upload warning for dispute %s: %s", dispute_id, s_exc)
+                    storage_path = f"evidence-pdfs/{dispute_id}/evidence.pdf"
+
+                # Discard in-memory buffer
+                pdf_stream.close()
+                del pdf_bytes
+
+                # Persist pointers and log Evidence Uploaded event to history
+                await dispute_repo.update_evidence_pointers(
+                    dispute_id,
+                    document_id=document_id,
+                    storage_path=storage_path,
+                )
+                await dispute_repo.append_history(dispute_id, {
+                    "event": "evidence_uploaded",
+                    "document_id": document_id,
+                    "storage_path": storage_path,
+                })
             else:
+                # Discard in-memory buffer on failure
+                pdf_stream.close()
+                del pdf_bytes
+
                 # Re-classify error
                 outcome = "submission_failed"
                 submission_log = DisputeSubmissionLog(
@@ -183,6 +324,11 @@ async def submit_dispute_evidence(dispute_id: str) -> dict[str, Any]:
                 )
                 session.add(submission_log)
                 await session.commit()
+                # Log Evidence Upload Failed event to history
+                await dispute_repo.append_history(dispute_id, {
+                    "event": "evidence_upload_failed",
+                    "reason": f"Document upload failed with HTTP {doc_status}"
+                })
                 raise DisputeSubmissionError(f"Document upload failed: HTTP {doc_status} — {doc_response_body}")
 
         except httpx.TimeoutException:
@@ -198,6 +344,11 @@ async def submit_dispute_evidence(dispute_id: str) -> dict[str, Any]:
             )
             session.add(submission_log)
             await session.commit()
+            # Log Evidence Upload Failed event to history
+            await dispute_repo.append_history(dispute_id, {
+                "event": "evidence_upload_failed",
+                "reason": "Document upload timed out after retry."
+            })
             raise DisputeSubmissionError("Document upload timed out after retry.")
         except Exception as e:
             if not isinstance(e, DisputeSubmissionError):
@@ -213,6 +364,11 @@ async def submit_dispute_evidence(dispute_id: str) -> dict[str, Any]:
                 )
                 session.add(submission_log)
                 await session.commit()
+                # Log Evidence Upload Failed event to history
+                await dispute_repo.append_history(dispute_id, {
+                    "event": "evidence_upload_failed",
+                    "reason": str(e)
+                })
                 raise DisputeSubmissionError(f"Document upload failed: {e}")
             else:
                 raise

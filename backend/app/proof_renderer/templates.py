@@ -189,6 +189,39 @@ def render_delivery_proof(data: DeliveryProofData) -> list[Flowable]:
         )
     )
 
+    # Addresses (Shipping vs Billing comparison)
+    elements.append(Paragraph("Address Verification Details", s["section"]))
+    if data.billing_address:
+        page_width = A4[0] - 4 * cm
+        address_table = Table(
+            [
+                [Paragraph("Billing Address", s["label"]), Paragraph("Shipping Address", s["label"])],
+                [Paragraph(data.billing_address, s["value"]), Paragraph(data.shipping_address, s["value"])]
+            ],
+            colWidths=[page_width * 0.5, page_width * 0.5]
+        )
+        address_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LINEBELOW", (0, 0), (-1, -1), 0.25, BORDER_COLOR),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(address_table)
+        
+        # Flag mismatch explicitly
+        if data.billing_address.strip().lower() != data.shipping_address.strip().lower():
+            mismatch_style = ParagraphStyle(
+                "mismatch_alert",
+                parent=s["body"],
+                textColor=colors.HexColor("#e94560"),
+                fontName="Helvetica-Bold",
+                spaceBefore=2 * mm,
+                spaceAfter=2 * mm
+            )
+            elements.append(Paragraph("⚠️ WARNING: Address Mismatch Detected! Shipping address differs from Billing address.", mismatch_style))
+    else:
+        elements.append(_kv_table([("Shipping Address", data.shipping_address)], s))
+
     # Shipping details
     elements.append(Paragraph("Shipping Information", s["section"]))
     elements.append(
@@ -196,7 +229,6 @@ def render_delivery_proof(data: DeliveryProofData) -> list[Flowable]:
             [
                 ("Carrier", data.carrier_name),
                 ("Tracking #", data.tracking_number),
-                ("Shipping Address", data.shipping_address),
                 ("Shipped At", data.shipped_at.strftime("%d %b %Y, %I:%M %p %Z")),
                 ("Delivered At", data.delivered_at.strftime("%d %b %Y, %I:%M %p %Z")),
                 ("Delivery Status", data.delivery_status),
@@ -210,6 +242,81 @@ def render_delivery_proof(data: DeliveryProofData) -> list[Flowable]:
             s,
         )
     )
+
+    # Verification Reference Details (OTP Reference)
+    elements.append(Paragraph("Delivery Verification (OTP Reference)", s["section"]))
+    if data.otp_transaction_id:
+        elements.append(
+            _kv_table(
+                [
+                    ("OTP Transaction ID", data.otp_transaction_id),
+                    ("Verification Timestamp", data.otp_verified_at.strftime("%d %b %Y, %I:%M %p %Z") if data.otp_verified_at else "N/A"),
+                    ("Verification Channel", data.otp_channel or "N/A")
+                ],
+                s,
+            )
+        )
+    else:
+        elements.append(Paragraph("Not captured for this transaction / Hand-signed delivery only", s["body_small"]))
+
+    # Tracking Event Timeline
+    elements.append(Paragraph("Carrier Tracking Timeline (Captured)", s["section"]))
+    if data.tracking_events:
+        rows = [[Paragraph("Timestamp", s["label"]), Paragraph("Status", s["label"]), Paragraph("Location", s["label"])]]
+        for event in data.tracking_events:
+            ts_str = event.timestamp.strftime("%d %b %Y, %I:%M %p %Z")
+            rows.append([
+                Paragraph(ts_str, s["value"]),
+                Paragraph(event.status, s["value"]),
+                Paragraph(event.location or "—", s["value"])
+            ])
+        page_width = A4[0] - 4 * cm
+        timeline_table = Table(rows, colWidths=[page_width * 0.35, page_width * 0.35, page_width * 0.3])
+        timeline_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
+            ("LINEBELOW", (0, 0), (-1, -1), 0.25, BORDER_COLOR),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(timeline_table)
+    else:
+        elements.append(Paragraph("Not captured for this transaction", s["body_small"]))
+
+    # Payment Risk & Fraud Signals
+    elements.append(Paragraph("Payment Security & Fraud Risk Signals", s["section"]))
+    risk_rows = [
+        ("CVV Match Result", data.cvv_match or "Not captured for this transaction"),
+        ("AVS Match Result", data.avs_result or "Not captured for this transaction"),
+        ("Checkout IP Address", data.checkout_ip or "Not captured for this transaction"),
+        ("Checkout Device Fingerprint", data.checkout_device or "Not captured for this transaction"),
+        ("3D-Secure/2FA Verified", "Yes" if data.is_2fa_verified is True else ("No" if data.is_2fa_verified is False else "Not captured for this transaction"))
+    ]
+    elements.append(_kv_table(risk_rows, s))
+
+    # Customer Delivery History
+    elements.append(Paragraph("Customer Account Prior Successful Deliveries", s["section"]))
+    if data.prior_deliveries:
+        rows = [[Paragraph("Order ID", s["label"]), Paragraph("Delivered Date", s["label"]), Paragraph("Item Description", s["label"])]]
+        for deliv in data.prior_deliveries:
+            ts_str = deliv.delivered_at.strftime("%d %b %Y")
+            rows.append([
+                Paragraph(deliv.order_id, s["value"]),
+                Paragraph(ts_str, s["value"]),
+                Paragraph(deliv.item_description or "—", s["value"])
+            ])
+        page_width = A4[0] - 4 * cm
+        history_table = Table(rows, colWidths=[page_width * 0.35, page_width * 0.35, page_width * 0.3])
+        history_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
+            ("LINEBELOW", (0, 0), (-1, -1), 0.25, BORDER_COLOR),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(history_table)
+    else:
+        elements.append(Paragraph("Not captured for this transaction / No prior delivery history found", s["body_small"]))
 
     # Additional notes
     if data.additional_notes:

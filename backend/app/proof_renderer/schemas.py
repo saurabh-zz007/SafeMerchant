@@ -14,6 +14,22 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
+class TrackingEvent(BaseModel):
+    """A single tracking scan event."""
+
+    timestamp: datetime
+    status: str
+    location: Optional[str] = None
+
+
+class PriorDelivery(BaseModel):
+    """A prior successful delivery record for the customer."""
+
+    order_id: str
+    delivered_at: datetime
+    item_description: Optional[str] = None
+
+
 class DeliveryProofData(BaseModel):
     """Data required to render a delivery-confirmation proof PDF."""
 
@@ -21,7 +37,12 @@ class DeliveryProofData(BaseModel):
     payment_id: str
     customer_name: str
     customer_email: str
+    
+    # Addresses
     shipping_address: str
+    billing_address: Optional[str] = None
+
+    # Carrier details
     carrier_name: str
     tracking_number: str
     shipped_at: datetime
@@ -31,6 +52,25 @@ class DeliveryProofData(BaseModel):
     proof_url: Optional[str] = Field(
         None, description="URL to carrier tracking page or screenshot"
     )
+
+    # Verification Reference Details (OTP validation)
+    otp_transaction_id: Optional[str] = None
+    otp_verified_at: Optional[datetime] = None
+    otp_channel: Optional[str] = None
+
+    # Tracking Event Timeline
+    tracking_events: list[TrackingEvent] = Field(default_factory=list)
+
+    # Payment Risk & Fraud signals
+    cvv_match: Optional[str] = None
+    avs_result: Optional[str] = None
+    checkout_ip: Optional[str] = None
+    checkout_device: Optional[str] = None
+    is_2fa_verified: Optional[bool] = None
+
+    # Customer Prior Deliveries
+    prior_deliveries: list[PriorDelivery] = Field(default_factory=list)
+
     additional_notes: Optional[str] = None
 
 

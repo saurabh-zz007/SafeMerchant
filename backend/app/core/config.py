@@ -67,6 +67,28 @@ class Settings(BaseSettings):
         description="Hours after which an action_required dispute is flagged as SLA-breached",
     )
 
+    # ── Supabase Storage ──
+    supabase_url: str = Field(
+        default="https://lkuauzrqapjyygxhdeir.supabase.co",
+        description="Supabase project URL",
+    )
+    supabase_service_role_key: str = Field(
+        default="",
+        description="Supabase Service Role Key or Anon Key for Storage API",
+    )
+    supabase_storage_bucket: str = Field(
+        default="evidence-pdfs",
+        description="Supabase Storage bucket name for evidence PDFs",
+    )
+
+    # ── Evidence Job Queue ──
+    max_concurrent_evidence_jobs: int = Field(
+        default=5,
+        ge=1,
+        le=50,
+        description="Maximum concurrent PDF generation and upload jobs",
+    )
+
     # ── Server ──
     host: str = Field(default="0.0.0.0")
     port: int = Field(default=8000)

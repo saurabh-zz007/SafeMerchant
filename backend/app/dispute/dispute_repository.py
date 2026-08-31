@@ -15,7 +15,7 @@ from typing import Any, Optional
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dispute.models import Dispute, DisputeAuditLog
+from app.dispute.models import Dispute, DisputeAuditLog, EvidenceJob
 
 logger = logging.getLogger(__name__)
 
@@ -256,4 +256,136 @@ class DisputeRepository:
             dispute_id, len(audit_entries), changed_by,
         )
         return audit_entries
+
+    async def update_document_id(self, dispute_id: str, document_id: str) -> None:
+        """Update the document_id on the dispute record."""
+        stmt = (
+            update(Dispute)
+            .where(Dispute.id == dispute_id)
+            .values(
+                document_id=document_id,
+                updated_at=datetime.now(timezone.utc),
+            )
+        )
+        await self._session.execute(stmt)
+        await self._session.commit()
+        logger.info("Dispute %s → document_id=%s", dispute_id, document_id)
+
+    async def update_storage_path(self, dispute_id: str, storage_path: str) -> None:
+        """Update the storage_path on the dispute record."""
+        stmt = (
+            update(Dispute)
+            .where(Dispute.id == dispute_id)
+            .values(
+                storage_path=storage_path,
+                updated_at=datetime.now(timezone.utc),
+            )
+        )
+        await self._session.execute(stmt)
+        await self._session.commit()
+        logger.info("Dispute %s → storage_path=%s", dispute_id, storage_path)
+
+    async def update_evidence_pointers(
+        self, dispute_id: str, document_id: Optional[str] = None, storage_path: Optional[str] = None
+    ) -> None:
+        """Update both document_id and storage_path on the dispute record."""
+        values: dict[str, Any] = {"updated_at": datetime.now(timezone.utc)}
+        if document_id is not None:
+            values["document_id"] = document_id
+        if storage_path is not None:
+            values["storage_path"] = storage_path
+
+        stmt = (
+            update(Dispute)
+            .where(Dispute.id == dispute_id)
+            .values(**values)
+        )
+        await self._session.execute(stmt)
+        await self._session.commit()
+        logger.info(
+            "Dispute %s → document_id=%s, storage_path=%s",
+            dispute_id, document_id, storage_path,
+        )
+
+    async def create_evidence_job(self, dispute_id: str) -> EvidenceJob:
+        """Enqueue an evidence generation job."""
+        job = EvidenceJob(
+            dispute_id=dispute_id,
+            status="queued",
+            attempts=0,
+        )
+        self._session.add(job)
+        await self._session.commit()
+        await self._session.refresh(job)
+        logger.info("Created EvidenceJob #%d for dispute %s", job.id, dispute_id)
+        return job
+
+    async def fetch_next_queued_job(self) -> Optional[EvidenceJob]:
+        """Fetch the next queued job with row locking to prevent race conditions."""
+        stmt = (
+            select(EvidenceJob)
+            .where(EvidenceJob.status == "queued")
+            .order_by(EvidenceJob.created_at.asc())
+            .limit(1)
+            .with_for_update(skip_locked=True)
+        )
+        res = await self._session.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def update_job_status(
+        self, job_id: int, status: str, error_message: Optional[str] = None
+    ) -> None:
+        """Update the status of an evidence job."""
+        now = datetime.now(timezone.utc)
+        values: dict[str, Any] = {
+            "status": status,
+            "updated_at": now,
+        }
+        if status == "processing":
+            values["started_at"] = now
+            values["attempts"] = EvidenceJob.attempts + 1
+        elif status in ("completed", "failed"):
+            values["completed_at"] = now
+            if error_message:
+                values["error_message"] = error_message
+
+        stmt = (
+            update(EvidenceJob)
+            .where(EvidenceJob.id == job_id)
+            .values(**values)
+        )
+        await self._session.execute(stmt)
+        await self._session.commit()
+        logger.info("EvidenceJob #%d → status=%s", job_id, status)
+
+    async def get_latest_evidence_job(self, dispute_id: str) -> Optional[EvidenceJob]:
+        """Fetch the most recent evidence job for a dispute."""
+        stmt = (
+            select(EvidenceJob)
+            .where(EvidenceJob.dispute_id == dispute_id)
+            .order_by(EvidenceJob.created_at.desc())
+            .limit(1)
+        )
+        res = await self._session.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def get_latest_evidence_jobs_map(
+        self, dispute_ids: list[str]
+    ) -> dict[str, EvidenceJob]:
+        """Fetch latest evidence job for multiple disputes in a single query."""
+        if not dispute_ids:
+            return {}
+        stmt = (
+            select(EvidenceJob)
+            .where(EvidenceJob.dispute_id.in_(dispute_ids))
+            .order_by(EvidenceJob.dispute_id, EvidenceJob.created_at.desc())
+        )
+        res = await self._session.execute(stmt)
+        jobs = res.scalars().all()
+        result: dict[str, EvidenceJob] = {}
+        for j in jobs:
+            if j.dispute_id not in result:
+                result[j.dispute_id] = j
+        return result
+
 

@@ -32,6 +32,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+from app.core.storage import storage_service
+from app.dispute.worker import evidence_worker
+
+
 # ── Lifespan (startup/shutdown) ──
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -40,14 +44,28 @@ async def lifespan(app: FastAPI):
     Startup:
       1. Enter the LangGraph PostgreSQL checkpointer context
       2. Compile the dispute graph with checkpointer + interrupt breakpoints
-      3. Store both on ``app.state`` for use by route handlers
+      3. Ensure Supabase Storage bucket exists
+      4. Start the concurrency-capped EvidenceWorkerPool
+      5. Store graph state on ``app.state`` for use by route handlers
 
     Shutdown:
-      1. Exit the checkpointer context (closes psycopg pool)
-      2. Dispose the SQLAlchemy async engine
+      1. Stop the EvidenceWorkerPool
+      2. Close storage client
+      3. Exit the checkpointer context (closes psycopg pool)
+      4. Dispose the SQLAlchemy async engine
     """
     logger.info("🚀 SafeMerchant Risk Agent starting up...")
     logger.info("   Database: %s", settings.database_url.split("@")[-1])  # Log host only
+
+    # ── Supabase Storage Initialization ──
+    try:
+        await storage_service.ensure_bucket()
+    except Exception as exc:
+        logger.warning("Supabase bucket check skipped/failed: %s", exc)
+
+    # ── Evidence Generation Job Worker Pool ──
+    await evidence_worker.start()
+    logger.info("⚙️ EvidenceWorkerPool background task is running (concurrency cap=%d, queue table='evidence_jobs')", settings.max_concurrent_evidence_jobs)
 
     # ── LangGraph Checkpointer ──
     async with checkpointer_context() as checkpointer:
@@ -60,7 +78,9 @@ async def lifespan(app: FastAPI):
 
         yield
 
-    logger.info("🛑 Shutting down — disposing DB engine...")
+    logger.info("🛑 Shutting down — stopping worker pool and disposing DB engine...")
+    await evidence_worker.stop()
+    await storage_service.close()
     await engine.dispose()
 
 

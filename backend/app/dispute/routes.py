@@ -162,12 +162,29 @@ async def process_dispute_and_broadcast(
             })
             
         else:
-            # Handle Completed State
-            state_values = _safe_serialise(graph_state.values)
+            state_values = _safe_serialise(graph_state.values) if graph_state else {}
             gate_action = state_values.get("gate_action")
             case_resolution = state_values.get("case_resolution")
+
+            final_status = "under_review" if case_resolution == "resolved_contested" else "resolved"
+            job_enqueued = False
             
-            await repo.update_status(dispute_id, "resolved", case_resolution=case_resolution)
+            # Enqueue asynchronous evidence generation job if contested
+            if case_resolution == "resolved_contested":
+                try:
+                    job = await repo.create_evidence_job(dispute_id)
+                    from datetime import datetime, timezone
+                    await repo.append_history(dispute_id, {
+                        "event": "job_queued",
+                        "job_id": job.id,
+                        "queued_at": datetime.now(timezone.utc).isoformat(),
+                    })
+                    job_enqueued = True
+                    logger.info("Enqueued evidence job #%d for dispute %s upon completion", job.id, dispute_id)
+                except Exception as exc:
+                    logger.exception("Failed to enqueue evidence job for dispute %s: %s", dispute_id, exc)
+
+            await repo.update_status(dispute_id, final_status, case_resolution=case_resolution)
             await repo.append_history(dispute_id, {
                 "event": "execution_completed",
                 "data": {
@@ -176,7 +193,11 @@ async def process_dispute_and_broadcast(
                 }
             })
             await session.commit()
-            
+
+            if job_enqueued:
+                from app.dispute.worker import evidence_worker
+                evidence_worker.notify()
+
             await manager.broadcast_system_event({
                 "event": "execution_completed",
                 "dispute_id": dispute_id,
@@ -194,13 +215,6 @@ async def process_dispute_and_broadcast(
                 outcome=outcome,
                 amount_paise=dispute_entity.amount or 0,
             )
-
-            # Trigger outbound evidence submission if contested
-            if case_resolution == "resolved_contested":
-                try:
-                    await submit_dispute_evidence(dispute_id)
-                except Exception as exc:
-                    logger.error("Failed to submit evidence for dispute %s: %s", dispute_id, exc)
 
 async def resume_dispute_and_broadcast(
     dispute_id: str,
@@ -234,17 +248,33 @@ async def resume_dispute_and_broadcast(
                 repo = DisputeRepository(session)
                 await repo.update_status(dispute_id, "awaiting_review")
         else:
-            # Graph completed after human review
-            
             # 1. Serialize the final LangGraph memory state
             state_values = _safe_serialise(graph_state.values)
             gate_action = state_values.get("gate_action")
             case_resolution = state_values.get("case_resolution")
-            
+
+            final_status = "under_review" if case_resolution == "resolved_contested" else "resolved"
+            job_enqueued = False
             async with async_session_factory() as session:
                 repo = DisputeRepository(session)
+                
+                # Enqueue asynchronous evidence generation job if contested
+                if case_resolution == "resolved_contested":
+                    try:
+                        job = await repo.create_evidence_job(dispute_id)
+                        from datetime import datetime, timezone
+                        await repo.append_history(dispute_id, {
+                            "event": "job_queued",
+                            "job_id": job.id,
+                            "queued_at": datetime.now(timezone.utc).isoformat(),
+                        })
+                        job_enqueued = True
+                        logger.info("Enqueued evidence job #%d for dispute %s after HIL accept", job.id, dispute_id)
+                    except Exception as exc:
+                        logger.exception("Failed to enqueue evidence job for dispute %s: %s", dispute_id, exc)
+
                 await repo.update_status(
-                    dispute_id, "resolved",
+                    dispute_id, final_status,
                     case_resolution=case_resolution,
                 )
                 
@@ -256,6 +286,11 @@ async def resume_dispute_and_broadcast(
                         "case_resolution": case_resolution,
                     }
                 })
+                await session.commit()
+
+            if job_enqueued:
+                from app.dispute.worker import evidence_worker
+                evidence_worker.notify()
 
             # 3. Broadcast the decisions to the real-time dashboard
             await manager.broadcast_system_event({
@@ -282,13 +317,6 @@ async def resume_dispute_and_broadcast(
                 outcome=outcome,
                 amount_paise=amt or 0,
             )
-
-            # Trigger outbound evidence submission if contested
-            if case_resolution == "resolved_contested":
-                try:
-                    await submit_dispute_evidence(dispute_id)
-                except Exception as exc:
-                    logger.error("Failed to submit evidence for dispute %s: %s", dispute_id, exc)
 
     except Exception as exc:
         logger.exception("Resume failed for dispute %s", dispute_id)
@@ -439,17 +467,25 @@ async def receive_dispute_webhook(
 async def list_disputes(limit: int = 50):
     """
     Query PostgreSQL for past disputes, ordered by most recent first.
-    Returns up to ``limit`` records (default 50).
-
-    Used by the Flutter dashboard to load initial state on connect.
+    Includes latest evidence job status for each dispute.
     """
     async with async_session_factory() as session:
         repo = DisputeRepository(session)
         disputes = await repo.list_disputes(limit=min(limit, 100))
+        dispute_ids = [d.id for d in disputes]
+        jobs_map = await repo.get_latest_evidence_jobs_map(dispute_ids)
 
-    return [
-        DisputeListItem.model_validate(d) for d in disputes
-    ]
+    items = []
+    for d in disputes:
+        item = DisputeListItem.model_validate(d)
+        job = jobs_map.get(d.id)
+        if job:
+            item.evidence_job_id = job.id
+            item.evidence_job_status = job.status
+            item.evidence_job_error = job.error_message
+        items.append(item)
+
+    return items
 
 
 @router.get(
@@ -460,7 +496,83 @@ async def list_disputes(limit: int = 50):
 )
 async def get_dispute(dispute_id: str):
     """
-    Query PostgreSQL for a single dispute by ID.
+    Query PostgreSQL for a single dispute by ID, including its latest evidence job status.
+    """
+    async with async_session_factory() as session:
+        repo = DisputeRepository(session)
+        dispute = await repo.get_dispute(dispute_id)
+        if dispute is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Dispute {dispute_id} not found.",
+            )
+        latest_job = await repo.get_latest_evidence_job(dispute_id)
+
+    item = DisputeListItem.model_validate(dispute)
+    if latest_job:
+        item.evidence_job_id = latest_job.id
+        item.evidence_job_status = latest_job.status
+        item.evidence_job_error = latest_job.error_message
+    return item
+
+
+@router.post(
+    "/disputes/{dispute_id}/retry-evidence",
+    tags=["disputes"],
+    summary="Retry failed evidence generation job for a dispute",
+)
+async def retry_dispute_evidence(dispute_id: str):
+    """
+    Manually retry an evidence generation job for a dispute if previous attempts failed.
+    """
+    async with async_session_factory() as session:
+        repo = DisputeRepository(session)
+        dispute = await repo.get_dispute(dispute_id)
+        if dispute is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Dispute {dispute_id} not found.",
+            )
+        
+        job = await repo.create_evidence_job(dispute_id)
+        from datetime import datetime, timezone
+        now_iso = datetime.now(timezone.utc).isoformat()
+        await repo.append_history(dispute_id, {
+            "event": "job_queued",
+            "job_id": job.id,
+            "queued_at": now_iso,
+            "retry": True,
+        })
+        await session.commit()
+
+    from app.dispute.worker import evidence_worker
+    evidence_worker.notify()
+
+    await manager.broadcast_system_event({
+        "event": "evidence_job_queued",
+        "dispute_id": dispute_id,
+        "job_id": job.id,
+        "retry": True,
+    })
+
+    return {
+        "status": "queued",
+        "job_id": job.id,
+        "dispute_id": dispute_id,
+        "message": f"Evidence job #{job.id} enqueued for retry.",
+    }
+
+
+@router.get(
+    "/disputes/{dispute_id}/evidence-url",
+    tags=["disputes"],
+    summary="Get short-lived signed URL for dispute evidence PDF",
+)
+async def get_dispute_evidence_url(dispute_id: str):
+    """
+    Returns a short-lived signed URL from Supabase Storage for the dispute's
+    evidence PDF. The frontend loads and renders the PDF directly from Supabase CDN.
+    The backend never proxies or streams the PDF bytes.
     """
     async with async_session_factory() as session:
         repo = DisputeRepository(session)
@@ -472,7 +584,29 @@ async def get_dispute(dispute_id: str):
             detail=f"Dispute {dispute_id} not found.",
         )
 
-    return DisputeListItem.model_validate(dispute)
+    if not dispute.storage_path:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Evidence PDF has not been generated or uploaded for dispute {dispute_id}.",
+        )
+
+    from app.core.storage import storage_service, SupabaseStorageError
+
+    try:
+        signed_url = await storage_service.create_signed_url(dispute.storage_path, expires_in=3600)
+    except SupabaseStorageError as exc:
+        logger.exception("Failed to generate signed URL for dispute %s", dispute_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate signed URL: {exc}",
+        )
+
+    return {
+        "dispute_id": dispute_id,
+        "storage_path": dispute.storage_path,
+        "signed_url": signed_url,
+        "expires_in": 3600,
+    }
 
 
 # ── HITL Review / Resume ─────────────────────────────────────────────
@@ -543,7 +677,6 @@ async def review_dispute(
                 "amount_paise": decision.amount_paise,
             }
         },
-        as_node=paused_node,
     )
 
     # 4. Record the review in the dispute history

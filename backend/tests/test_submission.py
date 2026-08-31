@@ -37,6 +37,8 @@ def mock_dispute_repo(mock_dispute):
     repo.get_dispute = AsyncMock(return_value=mock_dispute)
     repo.update_status = AsyncMock()
     repo.append_history = AsyncMock()
+    repo.update_document_id = AsyncMock()
+    repo.update_evidence_pointers = AsyncMock()
     return repo
 
 @pytest.fixture
@@ -108,8 +110,8 @@ async def test_submit_dispute_evidence_success(
     
     # Verify status transition
     mock_dispute_repo.update_status.assert_called_once_with("disp_test123", "under_review")
-    # Verify history logging
-    mock_dispute_repo.append_history.assert_called_once()
+    # Verify history logging (evidence_composed, evidence_uploaded, and evidence_submitted)
+    assert mock_dispute_repo.append_history.call_count == 3
     # Verify database log row added
     mock_session.add.assert_called_once()
     mock_session.commit.assert_called()

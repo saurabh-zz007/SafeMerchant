@@ -49,9 +49,14 @@ class DisputeListItem(BaseModel):
     customer_email: Optional[str] = None
     payment_id: Optional[str] = None
     order_id: Optional[str] = None
+    document_id: Optional[str] = None
+    storage_path: Optional[str] = None
     phase: Optional[str] = None
     outcome: Optional[str] = None
     updated_by: Optional[str] = None
     resolved_at: Optional[datetime] = None
+    evidence_job_id: Optional[int] = None
+    evidence_job_status: Optional[str] = None
+    evidence_job_error: Optional[str] = None
 
     model_config = {"from_attributes": True}

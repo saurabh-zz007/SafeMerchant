@@ -431,6 +431,52 @@ class DashboardController extends GetxController {
     }
   }
 
+  Future<String?> fetchEvidencePdfUrl(String disputeId) async {
+    try {
+      return await _apiService.fetchEvidencePdfUrl(
+        baseUrl: apiBaseUrl,
+        disputeId: disputeId,
+      );
+    } catch (error) {
+      _errorMessage = error.toString();
+      update();
+      return null;
+    }
+  }
+
+  Future<void> retryEvidenceJob(String disputeId) async {
+    try {
+      await _apiService.retryEvidenceJob(
+        baseUrl: apiBaseUrl,
+        disputeId: disputeId,
+      );
+      await refreshDispute(disputeId);
+      _prependEvent(
+        DashboardEvent(
+          receivedAt: DateTime.now(),
+          type: 'job_queued',
+          title: 'Evidence Generation Retried',
+          description: 'Queued retry job for dispute $disputeId.',
+          tone: DashboardEventTone.info,
+          disputeId: disputeId,
+        ),
+      );
+    } catch (error) {
+      _errorMessage = error.toString();
+      _prependEvent(
+        DashboardEvent(
+          receivedAt: DateTime.now(),
+          type: 'evidence_upload_failed',
+          title: 'Retry Failed',
+          description: error.toString(),
+          tone: DashboardEventTone.error,
+          disputeId: disputeId,
+        ),
+      );
+      update();
+    }
+  }
+
   @override
   void onClose() {
     unawaited(_messageSubscription?.cancel());

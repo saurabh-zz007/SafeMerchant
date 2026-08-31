@@ -27,6 +27,11 @@ class Dispute {
     this.requiresHumanReview = false,
     this.details = const {},
     this.createdAt,
+    this.documentId,
+    this.storagePath,
+    this.evidenceJobId,
+    this.evidenceJobStatus,
+    this.evidenceJobError,
   });
 
   final String id;
@@ -40,6 +45,11 @@ class Dispute {
   final bool requiresHumanReview;
   final Map<String, dynamic> details;
   final DateTime? createdAt;
+  final String? documentId;
+  final String? storagePath;
+  final int? evidenceJobId;
+  final String? evidenceJobStatus;
+  final String? evidenceJobError;
 
   String get displayStatus {
     if (requiresHumanReview) {
@@ -133,6 +143,34 @@ class Dispute {
         paymentEntity?['email']?.toString();
     final id = _readString(json, const ['id', 'dispute_id', 'case_id']) ??
         'unknown-dispute';
+    final documentId = json['document_id']?.toString() ?? disputeEntity?['document_id']?.toString();
+    final storagePath = json['storage_path']?.toString() ?? disputeEntity?['storage_path']?.toString();
+
+    final evidenceJobId = json['evidence_job_id'] is int ? json['evidence_job_id'] as int : null;
+    var evidenceJobStatus = json['evidence_job_status']?.toString();
+    var evidenceJobError = json['evidence_job_error']?.toString();
+
+    if (evidenceJobStatus == null) {
+      for (var item in history.reversed) {
+        if (item is! Map) continue;
+        final ev = item['event']?.toString();
+        if (ev == 'job_queued') {
+          evidenceJobStatus = 'queued';
+          break;
+        } else if (ev == 'job_picked_up') {
+          evidenceJobStatus = 'processing';
+          break;
+        } else if (ev == 'evidence_uploaded' || ev == 'evidence_submitted') {
+          evidenceJobStatus = 'completed';
+          break;
+        } else if (ev == 'evidence_upload_failed' || ev == 'evidence_job_failed') {
+          evidenceJobStatus = 'failed';
+          evidenceJobError = item['reason']?.toString() ?? item['error']?.toString();
+          break;
+        }
+      }
+    }
+
     requiresReview = requiresReview ||
         _readBool(json, 'requires_human_review') ||
         statusText == 'awaiting_review' ||
@@ -154,6 +192,11 @@ class Dispute {
       requiresHumanReview: requiresReview,
       details: details,
       createdAt: _readDate(json, const ['created_at', 'received_at']),
+      documentId: documentId,
+      storagePath: storagePath,
+      evidenceJobId: evidenceJobId,
+      evidenceJobStatus: evidenceJobStatus,
+      evidenceJobError: evidenceJobError,
     );
   }
   Dispute copyWith({
@@ -167,6 +210,11 @@ class Dispute {
     bool? requiresHumanReview,
     Map<String, dynamic>? details,
     DateTime? createdAt,
+    String? documentId,
+    String? storagePath,
+    int? evidenceJobId,
+    String? evidenceJobStatus,
+    String? evidenceJobError,
   }) {
     return Dispute(
       id: id,
@@ -180,6 +228,11 @@ class Dispute {
       requiresHumanReview: requiresHumanReview ?? this.requiresHumanReview,
       details: details ?? this.details,
       createdAt: createdAt ?? this.createdAt,
+      documentId: documentId ?? this.documentId,
+      storagePath: storagePath ?? this.storagePath,
+      evidenceJobId: evidenceJobId ?? this.evidenceJobId,
+      evidenceJobStatus: evidenceJobStatus ?? this.evidenceJobStatus,
+      evidenceJobError: evidenceJobError ?? this.evidenceJobError,
     );
   }
 
@@ -197,6 +250,11 @@ class Dispute {
       requiresHumanReview: next.requiresHumanReview,
       details: merged,
       createdAt: next.createdAt,
+      documentId: next.documentId ?? documentId,
+      storagePath: next.storagePath ?? storagePath,
+      evidenceJobId: next.evidenceJobId ?? evidenceJobId,
+      evidenceJobStatus: next.evidenceJobStatus ?? evidenceJobStatus,
+      evidenceJobError: next.evidenceJobError ?? evidenceJobError,
     );
   }
 

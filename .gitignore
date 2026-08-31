@@ -6,3 +6,5 @@ frontend/build/
 frontend/.dart_tool/
 frontend/.idea/
 frontend/*.iml
+backend/evidence_pdfs/
+backend/app/evidence_pdfs/

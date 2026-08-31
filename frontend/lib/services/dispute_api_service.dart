@@ -34,6 +34,42 @@ class DisputeApiService {
     throw const HttpException('Failed to parse dispute detail response');
   }
 
+  Future<String?> fetchEvidencePdfUrl({
+    required String baseUrl,
+    required String disputeId,
+  }) async {
+    final encodedId = Uri.encodeComponent(disputeId);
+    try {
+      final decoded = await _getJson(
+        Uri.parse('$baseUrl/api/v1/disputes/$encodedId/evidence-url'),
+      );
+      if (decoded is Map<String, dynamic>) {
+        return decoded['signed_url']?.toString();
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>> retryEvidenceJob({
+    required String baseUrl,
+    required String disputeId,
+  }) async {
+    final encodedId = Uri.encodeComponent(disputeId);
+    final request = await _client.postUrl(
+      Uri.parse('$baseUrl/api/v1/disputes/$encodedId/retry-evidence'),
+    );
+    final response = await request.close();
+    final body = await response.transform(utf8.decoder).join();
+    _ensureSuccess(response.statusCode, body);
+    if (body.trim().isEmpty) {
+      return const {};
+    }
+    final decoded = jsonDecode(body);
+    return decoded is Map<String, dynamic> ? decoded : const {};
+  }
+
   Future<Map<String, dynamic>> fetchHealth(String baseUrl) async {
     final decoded = await _getJson(Uri.parse('$baseUrl/api/v1/health'));
     return decoded is Map<String, dynamic> ? decoded : const {};

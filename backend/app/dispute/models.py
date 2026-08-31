@@ -219,6 +219,14 @@ class Dispute(Base):
         String(50), nullable=True,
         comment="Merchant order ID (e.g., ORD_1001)",
     )
+    document_id: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True,
+        comment="Razorpay document ID (e.g., doc_XXXX)",
+    )
+    storage_path: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True,
+        comment="Supabase Storage path (e.g., evidence-pdfs/disp_XXXX/evidence.pdf)",
+    )
     phase: Mapped[Optional[str]] = mapped_column(
         String(50), nullable=True, server_default="chargeback",
         comment="chargeback | pre_arbitration | arbitration",
@@ -247,9 +255,69 @@ class Dispute(Base):
     submission_logs: Mapped[list["DisputeSubmissionLog"]] = relationship(
         back_populates="dispute", cascade="all, delete-orphan",
     )
+    evidence_jobs: Mapped[list["EvidenceJob"]] = relationship(
+        back_populates="dispute", cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
         return f"<Dispute {self.id} status={self.status}>"
+
+
+# ═══════════════════════════════════════════════════════════════════
+# EVIDENCE GENERATION JOB QUEUE
+# ═══════════════════════════════════════════════════════════════════
+
+class EvidenceJob(Base):
+    """
+    Tracks queued asynchronous evidence PDF generation and upload tasks.
+    """
+    __tablename__ = "evidence_jobs"
+
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True,
+    )
+    dispute_id: Mapped[str] = mapped_column(
+        String(100), ForeignKey("disputes.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+        comment="Dispute to generate evidence for",
+    )
+    status: Mapped[str] = mapped_column(
+        String(30), nullable=False, server_default="queued", index=True,
+        comment="queued | processing | completed | failed",
+    )
+    attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0",
+        comment="Number of times this job has been attempted",
+    )
+    max_attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="3",
+        comment="Maximum allowed retry attempts",
+    )
+    error_message: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True,
+        comment="Last error message if job failed",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default="CURRENT_TIMESTAMP",
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default="CURRENT_TIMESTAMP",
+        onupdate=datetime.utcnow,
+    )
+    started_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+    completed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+
+    dispute: Mapped["Dispute"] = relationship(
+        back_populates="evidence_jobs",
+    )
+
+    def __repr__(self) -> str:
+        return f"<EvidenceJob id={self.id} dispute_id={self.dispute_id} status={self.status}>"
 
 
 # ═══════════════════════════════════════════════════════════════════

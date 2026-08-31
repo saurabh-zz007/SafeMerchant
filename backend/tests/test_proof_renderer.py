@@ -168,6 +168,33 @@ class TestRenderToFile:
         assert path.exists()
         assert path.read_bytes()[:5] == b"%PDF-"
 
+    def test_delivery_proof_with_all_upgraded_fields(self, renderer: ChargebackPDFRenderer, tmp_path):
+        upgraded_data = _delivery_dict()
+        upgraded_data.update({
+            "billing_address": "108 Ring Road, Delhi 110001",
+            "otp_transaction_id": "TXN_OTP_998877",
+            "otp_verified_at": datetime(2026, 8, 18, 14, 40, tzinfo=timezone.utc),
+            "otp_channel": "SMS to +91 ******9999",
+            "tracking_events": [
+                {"timestamp": datetime(2026, 8, 15, 10, 30, tzinfo=timezone.utc), "status": "Shipment Picked Up", "location": "Warehouse"},
+                {"timestamp": datetime(2026, 8, 16, 12, 0, tzinfo=timezone.utc), "status": "In Transit", "location": "Sorting Facility"},
+                {"timestamp": datetime(2026, 8, 18, 14, 45, tzinfo=timezone.utc), "status": "Delivered", "location": "Customer Doorstep"}
+            ],
+            "cvv_match": "Matched",
+            "avs_result": "Matched (ZIP & Address)",
+            "checkout_ip": "122.161.49.52",
+            "checkout_device": "iPhone 15 - Safari",
+            "is_2fa_verified": True,
+            "prior_deliveries": [
+                {"order_id": "order_ORD000111", "delivered_at": datetime(2026, 7, 10, 15, 0, tzinfo=timezone.utc), "item_description": "Leather Wallet"}
+            ]
+        })
+        path = renderer.render_to_file(
+            "delivery_proof", upgraded_data, directory=tmp_path
+        )
+        assert path.exists()
+        assert path.read_bytes()[:5] == b"%PDF-"
+
 
 # ─── error handling ───────────────────────────────────────────────
 
