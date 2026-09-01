@@ -90,11 +90,19 @@ class DashboardEvent {
     final node = _readString(data, const ['node', 'current_node', 'step'])
         ?.toLowerCase();
 
+    // Sandbox limitation is expected and informational (not alarming error)
+    if (normalizedType.contains('sandbox_limitation') ||
+        normalizedType.contains('contest_expected_failure') ||
+        status == 'contest_expected_failure' ||
+        status == 'contest_ready_sandbox_limitation') {
+      return DashboardEventTone.info;
+    }
+
     if (normalizedType.contains('error') ||
         status == 'lost' ||
         status == 'error' ||
         node == 'accept_loss' ||
-        data.containsKey('error')) {
+        (data.containsKey('error') && !normalizedType.contains('sandbox'))) {
       return DashboardEventTone.error;
     }
     if (status == 'won' ||

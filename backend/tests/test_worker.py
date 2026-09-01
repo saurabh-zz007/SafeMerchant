@@ -62,6 +62,50 @@ async def test_worker_claim_and_process_success(
 @patch("app.dispute.worker.DisputeRepository")
 @patch("app.dispute.worker.submit_dispute_evidence")
 @patch("app.dispute.worker.manager")
+async def test_worker_process_sandbox_limitation(
+    mock_ws_manager,
+    mock_submit_evidence,
+    mock_dispute_repo_class,
+    mock_session_factory,
+):
+    mock_session = MagicMock()
+    mock_session.commit = AsyncMock()
+    mock_session_factory.return_value.__aenter__.return_value = mock_session
+
+    mock_repo = MagicMock()
+    mock_repo.update_job_status = AsyncMock()
+    mock_dispute_repo_class.return_value = mock_repo
+
+    mock_submit_evidence.return_value = {
+        "outcome": "contest_expected_failure",
+        "document_id": "doc_sandbox_123",
+        "dispute_id": "disp_sandbox_test",
+        "razorpay_response": {"error": {"description": "dispute does not exist"}},
+    }
+    mock_ws_manager.broadcast_system_event = AsyncMock()
+
+    pool = EvidenceWorkerPool(max_concurrency=2)
+    await pool._process_job_wrapper(103, "disp_sandbox_test")
+
+    mock_repo.update_job_status.assert_called_with(
+        103,
+        "contest_expected_failure",
+        error_message='{"error": {"description": "dispute does not exist"}}',
+    )
+    mock_ws_manager.broadcast_system_event.assert_called_with({
+        "event": "contest_sandbox_limitation",
+        "dispute_id": "disp_sandbox_test",
+        "job_id": 103,
+        "document_id": "doc_sandbox_123",
+        "razorpay_response": {"error": {"description": "dispute does not exist"}},
+        "error_message": '{"error": {"description": "dispute does not exist"}}',
+    })
+
+
+@patch("app.dispute.worker.async_session_factory")
+@patch("app.dispute.worker.DisputeRepository")
+@patch("app.dispute.worker.submit_dispute_evidence")
+@patch("app.dispute.worker.manager")
 async def test_worker_process_failure_handling(
     mock_ws_manager,
     mock_submit_evidence,

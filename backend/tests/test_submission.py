@@ -97,8 +97,7 @@ async def test_submit_dispute_evidence_success(
     mock_contest_response.json.return_value = {"status": "contested"}
 
     # Mock sequence of client calls
-    mock_client.post = AsyncMock(return_value=mock_doc_response)
-    mock_client.patch = AsyncMock(return_value=mock_contest_response)
+    mock_client.post = AsyncMock(side_effect=[mock_doc_response, mock_contest_response])
 
     # Call the service function
     result = await submit_dispute_evidence("disp_test123")
@@ -110,7 +109,7 @@ async def test_submit_dispute_evidence_success(
     
     # Verify status transition
     mock_dispute_repo.update_status.assert_called_once_with("disp_test123", "under_review")
-    # Verify history logging (evidence_composed, evidence_uploaded, and evidence_submitted)
+    # Verify history logging (evidence_composed, evidence_uploaded, and contest_submitted)
     assert mock_dispute_repo.append_history.call_count == 3
     # Verify database log row added
     mock_session.add.assert_called_once()
@@ -159,7 +158,7 @@ async def test_submit_dispute_evidence_api_rejection(
     mock_doc_response.status_code = 201
     mock_doc_response.json.return_value = {"id": "doc_test123"}
     
-    # Response 2: Contest Dispute Rejection (400 Bad Request)
+    # Response 2: Contest Dispute Rejection (400 Bad Request / 404 Not Found)
     mock_contest_response = MagicMock()
     mock_contest_response.status_code = 400
     mock_contest_response.json.return_value = {
@@ -169,14 +168,13 @@ async def test_submit_dispute_evidence_api_rejection(
         }
     }
 
-    mock_client.post = AsyncMock(return_value=mock_doc_response)
-    mock_client.patch = AsyncMock(return_value=mock_contest_response)
+    mock_client.post = AsyncMock(side_effect=[mock_doc_response, mock_contest_response])
 
     # Call the service function
     result = await submit_dispute_evidence("disp_test123")
 
     # Assert outcomes
-    assert result["outcome"] == "api_rejected_expected"
+    assert result["outcome"] == "contest_expected_failure"
     # Verify status transition NOT called
     mock_dispute_repo.update_status.assert_not_called()
     # Verify DB log row committed
@@ -231,8 +229,7 @@ async def test_submit_dispute_evidence_genuine_failure(
     mock_contest_response.status_code = 500
     mock_contest_response.json.return_value = {"error": "internal_error"}
 
-    mock_client.post = AsyncMock(return_value=mock_doc_response)
-    mock_client.patch = AsyncMock(return_value=mock_contest_response)
+    mock_client.post = AsyncMock(side_effect=[mock_doc_response, mock_contest_response])
 
     # Expect DisputeSubmissionError to be raised
     with pytest.raises(DisputeSubmissionError):
@@ -287,17 +284,19 @@ async def test_submit_dispute_evidence_timeout_retry(
     mock_doc_response.status_code = 201
     mock_doc_response.json.return_value = {"id": "doc_test123"}
     
-    mock_client.post = AsyncMock(side_effect=[httpx.TimeoutException("Connection timed out"), mock_doc_response])
-
-    # Contest call succeeds on first try
     mock_contest_response = MagicMock()
     mock_contest_response.status_code = 200
     mock_contest_response.json.return_value = {"status": "contested"}
-    mock_client.patch = AsyncMock(return_value=mock_contest_response)
+
+    mock_client.post = AsyncMock(side_effect=[
+        httpx.TimeoutException("Connection timed out"),
+        mock_doc_response,
+        mock_contest_response
+    ])
 
     # Call the service function
     result = await submit_dispute_evidence("disp_test123")
 
     # Assert outcomes: should succeed because it retried and the second post succeeded
     assert result["outcome"] == "success"
-    assert mock_client.post.call_count == 2
+    assert mock_client.post.call_count == 3

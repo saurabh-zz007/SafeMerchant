@@ -10,6 +10,7 @@ enum DisputeStatus {
   paused,
   humanReviewRequired,
   evidenceSubmitted,
+  contestReadySandboxLimitation,
   error,
   unknown,
 }
@@ -65,6 +66,7 @@ class Dispute {
       DisputeStatus.paused => 'Paused',
       DisputeStatus.humanReviewRequired => 'Action Required: Manual Review',
       DisputeStatus.evidenceSubmitted => 'Evidence Submitted',
+      DisputeStatus.contestReadySandboxLimitation => 'Contest Ready — Sandbox Limitation',
       DisputeStatus.error => 'System Error',
       DisputeStatus.unknown => 'Unknown',
     };
@@ -76,21 +78,7 @@ class Dispute {
     final details = Map<String, dynamic>.from(json);
     final history = json['history'] as List<dynamic>? ?? [];
 
-    // 1. Clean Action-to-Enum Mapping (Goodbye if/else)
-    const actionToStatus = {
-      'accept': DisputeStatus.evidenceSubmitted,
-      'submit_evidence': DisputeStatus.evidenceSubmitted,
-      'reject': DisputeStatus.lost,
-      'accept_loss': DisputeStatus.lost,
-      'resolved_contested': DisputeStatus.won,
-      'resolved_refunded': DisputeStatus.lost,
-      'resolved_accepted_loss': DisputeStatus.acceptedLoss,
-      'won': DisputeStatus.won,
-      'lost': DisputeStatus.lost,
-      'accepted_loss': DisputeStatus.acceptedLoss,
-    };
-
-    // 2. Extract Webhook Payload
+    // 1. Extract Webhook Payload
     final webhookEvent = history.firstWhere(
       (item) => item is Map && item['event'] == 'webhook_received',
       orElse: () => <String, dynamic>{},
@@ -104,36 +92,9 @@ class Dispute {
       details['workflow'] = disputeEntity['phase'];
     }
 
-    // 3. Determine Smart Status by scanning history (newest first)
-    DisputeStatus? computedStatus;
-    bool requiresReview = false;
-
-    for (var item in history.reversed) {
-      if (item is! Map) continue;
-      final eventName = item['event'];
-
-      if (eventName == 'human_review_submitted') {
-        computedStatus =
-            actionToStatus[item['action']?.toString().toLowerCase()];
-        break;
-      }
-
-      if (eventName == 'execution_completed') {
-        final gateAction = item['data']?['gate_action']?.toString();
-        computedStatus = actionToStatus[gateAction];
-        if (computedStatus != null) break;
-      }
-
-      if (eventName == 'human_review_required' && computedStatus == null) {
-        computedStatus = DisputeStatus.humanReviewRequired;
-        requiresReview = true;
-      }
-    }
-
-    // Fallbacks for null amounts and strings
     final rawAmount = json['amount_paise'] ?? paymentEntity?['amount'];
     final amountFromPaise = rawAmount is num ? rawAmount / 100 : null;
-    final statusText = _readString(json, const ['status', 'outcome', 'state']);
+    final statusText = _readString(json, const ['status', 'outcome', 'state'])?.toLowerCase();
     final node = _readString(json, const ['current_node', 'node']);
     final reason =
         _readString(json, const ['reason', 'dispute_reason', 'reason_code']) ??
@@ -147,38 +108,81 @@ class Dispute {
     final storagePath = json['storage_path']?.toString() ?? disputeEntity?['storage_path']?.toString();
 
     final evidenceJobId = json['evidence_job_id'] is int ? json['evidence_job_id'] as int : null;
-    var evidenceJobStatus = json['evidence_job_status']?.toString();
+    var evidenceJobStatus = json['evidence_job_status']?.toString().toLowerCase();
     var evidenceJobError = json['evidence_job_error']?.toString();
 
-    if (evidenceJobStatus == null) {
+    if (evidenceJobStatus == null || evidenceJobStatus.isEmpty) {
       for (var item in history.reversed) {
         if (item is! Map) continue;
         final ev = item['event']?.toString();
-        if (ev == 'job_queued') {
-          evidenceJobStatus = 'queued';
+        if (ev == 'contest_submitted_sandbox_limitation') {
+          evidenceJobStatus = 'contest_expected_failure';
+          evidenceJobError = item['error_message']?.toString() ?? item['razorpay_response']?.toString();
+          break;
+        } else if (ev == 'contest_submission_failed' || ev == 'evidence_upload_failed' || ev == 'evidence_job_failed') {
+          evidenceJobStatus = 'failed';
+          evidenceJobError = item['reason']?.toString() ?? item['error']?.toString();
+          break;
+        } else if (ev == 'contest_submitted' || ev == 'evidence_submitted') {
+          evidenceJobStatus = 'completed';
           break;
         } else if (ev == 'job_picked_up') {
           evidenceJobStatus = 'processing';
           break;
-        } else if (ev == 'evidence_uploaded' || ev == 'evidence_submitted') {
-          evidenceJobStatus = 'completed';
-          break;
-        } else if (ev == 'evidence_upload_failed' || ev == 'evidence_job_failed') {
-          evidenceJobStatus = 'failed';
-          evidenceJobError = item['reason']?.toString() ?? item['error']?.toString();
+        } else if (ev == 'job_queued') {
+          evidenceJobStatus = 'queued';
           break;
         }
       }
     }
 
-    requiresReview = requiresReview ||
-        _readBool(json, 'requires_human_review') ||
+    bool requiresReview = _readBool(json, 'requires_human_review') ||
         statusText == 'awaiting_review' ||
         statusText == 'human_review_required';
 
+    if (!requiresReview) {
+      for (var item in history.reversed) {
+        if (item is! Map) continue;
+        final ev = item['event']?.toString();
+        if (ev == 'human_review_required') {
+          requiresReview = true;
+          break;
+        } else if (ev == 'human_review_submitted' || ev == 'execution_completed_after_review') {
+          requiresReview = false;
+          break;
+        }
+      }
+    }
+
+    // Determine DisputeStatus based on true DB state & evidence worker progress
+    DisputeStatus computedStatus;
+    if (requiresReview) {
+      computedStatus = DisputeStatus.humanReviewRequired;
+    } else if (evidenceJobStatus == 'contest_expected_failure') {
+      computedStatus = DisputeStatus.contestReadySandboxLimitation;
+    } else if (evidenceJobStatus == 'failed' || statusText == 'error') {
+      computedStatus = DisputeStatus.error;
+    } else if (evidenceJobStatus == 'completed') {
+      computedStatus = DisputeStatus.evidenceSubmitted;
+    } else if (evidenceJobStatus == 'queued' || evidenceJobStatus == 'processing' || statusText == 'processing') {
+      computedStatus = DisputeStatus.processing;
+    } else if (statusText == 'accepted_loss') {
+      computedStatus = DisputeStatus.acceptedLoss;
+    } else if (statusText == 'lost') {
+      computedStatus = DisputeStatus.lost;
+    } else if (statusText == 'won') {
+      computedStatus = DisputeStatus.won;
+    } else if (statusText == 'under_review') {
+      computedStatus = DisputeStatus.evidenceSubmitted;
+    } else if (statusText == 'resolved') {
+      computedStatus = DisputeStatus.resolved;
+    } else {
+      computedStatus = _statusFrom(statusText, node, requiresReview);
+    }
+
     return Dispute(
       id: id,
-      status: computedStatus ?? _statusFrom(statusText, node, requiresReview),
+      status: computedStatus,
       updatedAt: _readDate(json, const ['updated_at', 'last_updated']) ??
           DateTime.now(),
       amount: _readDouble(json, const ['amount', 'dispute_amount']) ??
@@ -268,6 +272,9 @@ class Dispute {
     }
 
     final normalized = (status ?? node ?? '').toLowerCase();
+    if (normalized.contains('sandbox_limitation') || normalized.contains('contest_expected_failure') || normalized.contains('contest_ready')) {
+      return DisputeStatus.contestReadySandboxLimitation;
+    }
     if (normalized.contains('won') || normalized == 'success') {
       return DisputeStatus.won;
     }

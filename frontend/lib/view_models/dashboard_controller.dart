@@ -324,20 +324,12 @@ class DashboardController extends GetxController {
     update();
 
     try {
-      final response = await _apiService.submitReview(
+      await _apiService.submitReview(
         baseUrl: apiBaseUrl,
         disputeId: id,
         action: action,
         reason: reason,
       );
-      final updatePayload = _extractDisputePayload(response) ??
-          {
-            'dispute_id': id,
-            'status': action == 'accept' ? 'evidence_submitted' : 'lost',
-            'current_node': action,
-            'requires_human_review': false,
-          };
-      _upsertDispute(updatePayload);
       if (id == _pendingReviewPayload?['dispute_id']?.toString()) {
         _pendingReviewPayload = null;
       }
@@ -346,16 +338,20 @@ class DashboardController extends GetxController {
           receivedAt: DateTime.now(),
           type: action,
           title: action == 'accept'
-              ? 'Evidence Submitted Successfully'
-              : 'Loss Accepted',
+              ? 'Review Decision: Contest Evidence'
+              : 'Review Decision: Accept Loss',
           description: 'Review decision submitted for dispute $id.',
           tone: action == 'accept'
-              ? DashboardEventTone.success
-              : DashboardEventTone.error,
+              ? DashboardEventTone.info
+              : DashboardEventTone.warning,
           disputeId: id,
           node: action,
         ),
       );
+      // Fetch authoritative DB state immediately
+      await refreshDispute(id);
+      unawaited(refreshMetrics());
+      unawaited(refreshSelectedAudit());
     } catch (error) {
       _errorMessage = error.toString();
       _prependEvent(
@@ -548,13 +544,22 @@ class DashboardController extends GetxController {
         eventType == 'human_review_required' ||
         eventType == 'execution_completed' ||
         eventType == 'review_submitted' ||
+        eventType == 'job_queued' ||
+        eventType == 'job_picked_up' ||
+        eventType == 'contest_sandbox_limitation' ||
+        eventType == 'evidence_completed' ||
+        eventType == 'evidence_job_failed' ||
         eventType == 'execution_error') {
       final updatePayload = _extractDisputePayload(payload) ?? payload;
       final decoratedUpdate = {
         ...updatePayload,
         if (eventType == 'human_review_required') 'requires_human_review': true,
         if (eventType == 'human_review_required') 'status': 'awaiting_review',
-        if (eventType == 'execution_completed') 'status': 'resolved',
+        if (eventType == 'contest_sandbox_limitation') 'evidence_job_status': 'contest_expected_failure',
+        if (eventType == 'contest_sandbox_limitation' && payload['error_message'] != null) 'evidence_job_error': payload['error_message'],
+        if (eventType == 'evidence_completed') 'evidence_job_status': 'completed',
+        if (eventType == 'evidence_job_failed') 'evidence_job_status': 'failed',
+        if (eventType == 'evidence_job_failed' && payload['error'] != null) 'evidence_job_error': payload['error'],
         if (eventType == 'execution_error') 'status': 'error',
         if (event.disputeId != null) 'dispute_id': event.disputeId,
       };
@@ -562,6 +567,9 @@ class DashboardController extends GetxController {
       if (eventType == 'human_review_required') {
         _selectedDisputeId = event.disputeId ?? _readDisputeId(decoratedUpdate);
         _pendingReviewPayload = payload;
+      }
+      if (event.disputeId != null) {
+        unawaited(refreshDispute(event.disputeId!));
       }
       unawaited(refreshMetrics());
       unawaited(refreshSelectedAudit());

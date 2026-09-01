@@ -54,13 +54,13 @@ class Order(Base):
 
     # ── Relationships ──
     shipping_logs: Mapped[list["ShippingLog"]] = relationship(
-        back_populates="order", cascade="all, delete-orphan"
+        back_populates="order", cascade="all, delete-orphan", lazy="selectin"
     )
     communications: Mapped[list["CustomerCommunication"]] = relationship(
-        back_populates="order", cascade="all, delete-orphan"
+        back_populates="order", cascade="all, delete-orphan", lazy="selectin"
     )
     risk_signals: Mapped[list["RiskSignal"]] = relationship(
-        back_populates="order", cascade="all, delete-orphan"
+        back_populates="order", cascade="all, delete-orphan", lazy="selectin"
     )
 
     def __repr__(self) -> str:
@@ -94,7 +94,7 @@ class ShippingLog(Base):
     )
 
     # ── Relationships ──
-    order: Mapped["Order"] = relationship(back_populates="shipping_logs")
+    order: Mapped["Order"] = relationship(back_populates="shipping_logs", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<ShippingLog {self.tracking_id} → {self.delivery_status}>"
@@ -124,7 +124,7 @@ class CustomerCommunication(Base):
     )
 
     # ── Relationships ──
-    order: Mapped["Order"] = relationship(back_populates="communications")
+    order: Mapped["Order"] = relationship(back_populates="communications", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<Communication {self.ticket_id} via {self.channel}>"
@@ -157,7 +157,7 @@ class RiskSignal(Base):
     )
 
     # ── Relationships ──
-    order: Mapped["Order"] = relationship(back_populates="risk_signals")
+    order: Mapped["Order"] = relationship(back_populates="risk_signals", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<RiskSignal #{self.signal_id} 2FA={self.is_2fa_verified}>"
@@ -250,13 +250,13 @@ class Dispute(Base):
 
     # ── Relationships ──
     audit_logs: Mapped[list["DisputeAuditLog"]] = relationship(
-        back_populates="dispute", cascade="all, delete-orphan",
+        back_populates="dispute", cascade="all, delete-orphan", lazy="selectin"
     )
     submission_logs: Mapped[list["DisputeSubmissionLog"]] = relationship(
-        back_populates="dispute", cascade="all, delete-orphan",
+        back_populates="dispute", cascade="all, delete-orphan", lazy="selectin"
     )
     evidence_jobs: Mapped[list["EvidenceJob"]] = relationship(
-        back_populates="dispute", cascade="all, delete-orphan",
+        back_populates="dispute", cascade="all, delete-orphan", lazy="selectin"
     )
 
     def __repr__(self) -> str:
@@ -313,7 +313,7 @@ class EvidenceJob(Base):
     )
 
     dispute: Mapped["Dispute"] = relationship(
-        back_populates="evidence_jobs",
+        back_populates="evidence_jobs", lazy="selectin"
     )
 
     def __repr__(self) -> str:
@@ -400,7 +400,7 @@ class DisputeAuditLog(Base):
     )
 
     # ── Relationships ──
-    dispute: Mapped["Dispute"] = relationship(back_populates="audit_logs")
+    dispute: Mapped["Dispute"] = relationship(back_populates="audit_logs", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<AuditLog dispute={self.dispute_id} field={self.field}>"
@@ -460,7 +460,7 @@ class DisputeSubmissionLog(Base):
     )
 
     # ── Relationships ──
-    dispute: Mapped["Dispute"] = relationship(back_populates="submission_logs")
+    dispute: Mapped["Dispute"] = relationship(back_populates="submission_logs", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<SubmissionLog dispute={self.dispute_id} outcome={self.outcome}>"

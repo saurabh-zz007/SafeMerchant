@@ -153,30 +153,61 @@ class EvidenceWorkerPool:
             logger.info("Executing EvidenceJob #%d for dispute %s...", job_id, dispute_id)
             try:
                 result = await submit_dispute_evidence(dispute_id)
+                outcome = result.get("outcome")
+                doc_id = result.get("document_id")
+                rzp_response = result.get("razorpay_response")
                 logger.info(
-                    "EvidenceJob #%d completed successfully for dispute %s (outcome=%s, doc_id=%s)",
+                    "EvidenceJob #%d finished for dispute %s (outcome=%s, doc_id=%s)",
                     job_id,
                     dispute_id,
-                    result.get("outcome"),
-                    result.get("document_id"),
+                    outcome,
+                    doc_id,
                 )
 
-                async with async_session_factory() as session:
-                    repo = DisputeRepository(session)
-                    await repo.update_job_status(job_id, "completed")
+                if outcome == "contest_expected_failure":
+                    import json
+                    err_msg = (
+                        json.dumps(rzp_response)
+                        if isinstance(rzp_response, (dict, list))
+                        else str(rzp_response)
+                    )
+                    async with async_session_factory() as session:
+                        repo = DisputeRepository(session)
+                        await repo.update_job_status(job_id, "contest_expected_failure", error_message=err_msg)
+                        await repo.update_status(dispute_id, "under_review")
 
-                await manager.broadcast_system_event({
-                    "event": "evidence_completed",
-                    "dispute_id": dispute_id,
-                    "job_id": job_id,
-                    "document_id": result.get("document_id"),
-                })
+                    await manager.broadcast_system_event({
+                        "event": "contest_sandbox_limitation",
+                        "dispute_id": dispute_id,
+                        "job_id": job_id,
+                        "document_id": doc_id,
+                        "razorpay_response": rzp_response,
+                        "error_message": err_msg,
+                    })
+                else:
+                    async with async_session_factory() as session:
+                        repo = DisputeRepository(session)
+                        await repo.update_job_status(job_id, "completed")
+                        await repo.update_status(dispute_id, "under_review")
+
+                    await manager.broadcast_system_event({
+                        "event": "evidence_completed",
+                        "dispute_id": dispute_id,
+                        "job_id": job_id,
+                        "document_id": doc_id,
+                    })
 
             except Exception as exc:
                 logger.exception("EvidenceJob #%d failed for dispute %s: %s", job_id, dispute_id, exc)
                 async with async_session_factory() as session:
                     repo = DisputeRepository(session)
                     await repo.update_job_status(job_id, "failed", error_message=str(exc))
+                    await repo.update_status(dispute_id, "error")
+                    await repo.append_history(dispute_id, {
+                        "event": "evidence_job_failed",
+                        "job_id": job_id,
+                        "error": str(exc),
+                    })
 
                 await manager.broadcast_system_event({
                     "event": "evidence_job_failed",

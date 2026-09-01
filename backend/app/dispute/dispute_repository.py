@@ -344,7 +344,7 @@ class DisputeRepository:
         if status == "processing":
             values["started_at"] = now
             values["attempts"] = EvidenceJob.attempts + 1
-        elif status in ("completed", "failed"):
+        elif status in ("completed", "failed", "contest_expected_failure"):
             values["completed_at"] = now
             if error_message:
                 values["error_message"] = error_message

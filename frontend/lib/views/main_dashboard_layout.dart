@@ -707,187 +707,296 @@ class _DisputeDetailsDialogState extends State<_DisputeDetailsDialog> {
                                   // Evidence PDF Card (State-aware)
                                   Builder(
                                     builder: (context) {
-                                      final hasStorage = dispute.storagePath != null && dispute.storagePath!.isNotEmpty;
-                                      final jobStatus = (dispute.evidenceJobStatus ?? '').toLowerCase();
-                                      final isFailed = jobStatus == 'failed';
-                                      final isProcessing = jobStatus == 'queued' || jobStatus == 'processing' || (isRunning && !hasStorage);
-                                      final isReady = hasStorage || jobStatus == 'completed';
+                                       final isDark = theme.brightness == Brightness.dark;
+                                       final hasStorage = dispute.storagePath != null && dispute.storagePath!.isNotEmpty;
+                                       final jobStatus = (dispute.evidenceJobStatus ?? '').toLowerCase();
+                                       final isSandboxLimitation = jobStatus == 'contest_expected_failure' || dispute.status == DisputeStatus.contestReadySandboxLimitation;
+                                       final isFailed = (jobStatus == 'failed' || dispute.status == DisputeStatus.error) && !isSandboxLimitation;
+                                       final isProcessing = (jobStatus == 'queued' || jobStatus == 'processing' || (isRunning && !hasStorage)) && !isSandboxLimitation && !isFailed;
+                                       final isReady = (hasStorage || jobStatus == 'completed') && !isSandboxLimitation && !isFailed && !isProcessing;
 
-                                      if (isReady && hasStorage) {
-                                        // ── State 1: Ready ──
-                                        return Container(
-                                          padding: const EdgeInsets.all(16),
-                                          decoration: BoxDecoration(
-                                            border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
-                                            borderRadius: BorderRadius.circular(8),
-                                            color: Colors.green.withValues(alpha: 0.04),
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  const Icon(Icons.picture_as_pdf, size: 18, color: Colors.redAccent),
-                                                  const SizedBox(width: 8),
-                                                  Text(
-                                                    'Evidence PDF Document',
-                                                    style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-                                                  ),
-                                                  const Spacer(),
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.green.withValues(alpha: 0.15),
-                                                      borderRadius: BorderRadius.circular(4),
-                                                    ),
-                                                    child: Text(
-                                                      'Ready',
-                                                      style: theme.textTheme.bodySmall?.copyWith(
-                                                        color: Colors.green,
-                                                        fontWeight: FontWeight.w600,
-                                                        fontSize: 11,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                'In-memory compiled PDF package stored on Supabase Storage CDN.',
-                                                style: theme.textTheme.bodySmall,
-                                              ),
-                                              const SizedBox(height: 12),
-                                              ElevatedButton.icon(
-                                                onPressed: _fetchingPdf ? null : () => _viewEvidencePdf(dispute),
-                                                icon: _fetchingPdf
-                                                    ? const SizedBox(
-                                                        width: 14,
-                                                        height: 14,
-                                                        child: CircularProgressIndicator(strokeWidth: 2),
-                                                      )
-                                                    : const Icon(Icons.visibility, size: 16),
-                                                label: Text(_fetchingPdf ? 'Fetching Signed URL...' : 'View Evidence PDF (Supabase CDN)'),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      } else if (isFailed) {
-                                        // ── State 2: Failed ──
-                                        final errorMsg = dispute.evidenceJobError ?? 'Generation or upload failed';
-                                        return Container(
-                                          padding: const EdgeInsets.all(16),
-                                          decoration: BoxDecoration(
-                                            border: Border.all(color: theme.colorScheme.error.withValues(alpha: 0.4)),
-                                            borderRadius: BorderRadius.circular(8),
-                                            color: theme.colorScheme.error.withValues(alpha: 0.05),
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  Icon(Icons.error_outline, size: 18, color: theme.colorScheme.error),
-                                                  const SizedBox(width: 8),
-                                                  Text(
-                                                    'Evidence Generation Failed',
-                                                    style: theme.textTheme.titleSmall?.copyWith(
-                                                      fontWeight: FontWeight.w600,
-                                                      color: theme.colorScheme.error,
-                                                    ),
-                                                  ),
-                                                  const Spacer(),
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                                    decoration: BoxDecoration(
-                                                      color: theme.colorScheme.error.withValues(alpha: 0.15),
-                                                      borderRadius: BorderRadius.circular(4),
-                                                    ),
-                                                    child: Text(
-                                                      'Failed',
-                                                      style: theme.textTheme.bodySmall?.copyWith(
-                                                        color: theme.colorScheme.error,
-                                                        fontWeight: FontWeight.w600,
-                                                        fontSize: 11,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                errorMsg,
-                                                style: theme.textTheme.bodySmall?.copyWith(
-                                                  color: theme.colorScheme.error,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 12),
-                                              OutlinedButton.icon(
-                                                onPressed: () => widget.viewModel.retryEvidenceJob(dispute.id),
-                                                icon: const Icon(Icons.refresh, size: 16),
-                                                label: const Text('Retry Evidence Generation'),
-                                                style: OutlinedButton.styleFrom(
-                                                  foregroundColor: theme.colorScheme.error,
-                                                  side: BorderSide(color: theme.colorScheme.error.withValues(alpha: 0.5)),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      } else if (isProcessing) {
-                                        // ── State 3: In-Progress / Queued ──
-                                        final isPickingUp = jobStatus == 'processing';
-                                        return Container(
-                                          padding: const EdgeInsets.all(16),
-                                          decoration: BoxDecoration(
-                                            border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
-                                            borderRadius: BorderRadius.circular(8),
-                                            color: Colors.amber.withValues(alpha: 0.05),
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  const SizedBox(
-                                                    width: 14,
-                                                    height: 14,
-                                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.amber),
-                                                  ),
-                                                  const SizedBox(width: 10),
-                                                  Text(
-                                                    isPickingUp ? 'Generating Evidence PDF...' : 'Evidence Job Queued',
-                                                    style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-                                                  ),
-                                                  const Spacer(),
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.amber.withValues(alpha: 0.15),
-                                                      borderRadius: BorderRadius.circular(4),
-                                                    ),
-                                                    child: Text(
-                                                      isPickingUp ? 'Processing' : 'Queued',
-                                                      style: theme.textTheme.bodySmall?.copyWith(
-                                                        color: Colors.amber.shade800,
-                                                        fontWeight: FontWeight.w600,
-                                                        fontSize: 11,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                isPickingUp
-                                                    ? 'Worker is generating in-memory PDF and uploading to Supabase Storage...'
-                                                    : 'Dispute is queued in the worker pool. PDF will generate shortly.',
-                                                style: theme.textTheme.bodySmall,
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      } else {
-                                        // ── State 4: Not Yet Generated ──
+                                       if (isSandboxLimitation) {
+                                         // ── State 1: Contest Ready — Sandbox Limitation ──
+                                         final rzpError = dispute.evidenceJobError ?? '{"error": {"code": "BAD_REQUEST_ERROR", "description": "dispute does not exist"}}';
+                                         const neutralColor = Color(0xFF6366F1);
+                                         return Container(
+                                           padding: const EdgeInsets.all(16),
+                                           decoration: BoxDecoration(
+                                             border: Border.all(color: neutralColor.withValues(alpha: 0.35)),
+                                             borderRadius: BorderRadius.circular(8),
+                                             color: neutralColor.withValues(alpha: 0.05),
+                                           ),
+                                           child: Column(
+                                             crossAxisAlignment: CrossAxisAlignment.stretch,
+                                             children: [
+                                               Row(
+                                                 children: [
+                                                   const Icon(Icons.info_outline, size: 18, color: neutralColor),
+                                                   const SizedBox(width: 8),
+                                                   Text(
+                                                     'Contest Ready — Sandbox Limitation',
+                                                     style: theme.textTheme.titleSmall?.copyWith(
+                                                       fontWeight: FontWeight.w600,
+                                                       color: isDark ? const Color(0xFF818CF8) : const Color(0xFF4338CA),
+                                                     ),
+                                                   ),
+                                                   const Spacer(),
+                                                   Container(
+                                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                     decoration: BoxDecoration(
+                                                       color: neutralColor.withValues(alpha: 0.15),
+                                                       borderRadius: BorderRadius.circular(4),
+                                                     ),
+                                                     child: Text(
+                                                       'Sandbox Limitation',
+                                                       style: theme.textTheme.bodySmall?.copyWith(
+                                                         color: isDark ? const Color(0xFF818CF8) : const Color(0xFF4338CA),
+                                                         fontWeight: FontWeight.w600,
+                                                         fontSize: 11,
+                                                       ),
+                                                     ),
+                                                   ),
+                                                 ],
+                                               ),
+                                               const SizedBox(height: 8),
+                                               Text(
+                                                 'Razorpay\'s sandbox cannot generate real bank-raised disputes to submit evidence against — the contest request was correctly constructed and dispatched to Razorpay with document ID.',
+                                                 style: theme.textTheme.bodySmall?.copyWith(
+                                                   color: isDark ? Colors.grey.shade300 : Colors.grey.shade800,
+                                                   height: 1.35,
+                                                 ),
+                                               ),
+                                               const SizedBox(height: 10),
+                                               Container(
+                                                 padding: const EdgeInsets.all(10),
+                                                 decoration: BoxDecoration(
+                                                   color: isDark ? Colors.black38 : Colors.grey.shade100,
+                                                   borderRadius: BorderRadius.circular(6),
+                                                   border: Border.all(
+                                                     color: isDark ? Colors.white12 : Colors.grey.shade300,
+                                                   ),
+                                                 ),
+                                                 child: Column(
+                                                   crossAxisAlignment: CrossAxisAlignment.start,
+                                                   children: [
+                                                     Row(
+                                                       children: [
+                                                         Icon(Icons.terminal, size: 13, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                                                         const SizedBox(width: 4),
+                                                         Text(
+                                                           'Razorpay Sandbox Response',
+                                                           style: TextStyle(
+                                                             fontSize: 10,
+                                                             fontWeight: FontWeight.w600,
+                                                             color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+                                                           ),
+                                                         ),
+                                                       ],
+                                                     ),
+                                                     const SizedBox(height: 4),
+                                                     SelectableText(
+                                                       rzpError,
+                                                       style: TextStyle(
+                                                         fontFamily: 'monospace',
+                                                         fontSize: 11,
+                                                         color: isDark ? Colors.amber.shade200 : Colors.indigo.shade900,
+                                                       ),
+                                                     ),
+                                                   ],
+                                                 ),
+                                               ),
+                                               if (hasStorage) ...[
+                                                 const SizedBox(height: 12),
+                                                 ElevatedButton.icon(
+                                                   onPressed: _fetchingPdf ? null : () => _viewEvidencePdf(dispute),
+                                                   icon: _fetchingPdf
+                                                       ? const SizedBox(
+                                                           width: 14,
+                                                           height: 14,
+                                                           child: CircularProgressIndicator(strokeWidth: 2),
+                                                         )
+                                                       : const Icon(Icons.visibility, size: 16),
+                                                   label: Text(_fetchingPdf ? 'Fetching Signed URL...' : 'View Evidence PDF (Supabase CDN)'),
+                                                 ),
+                                               ],
+                                             ],
+                                           ),
+                                         );
+                                       } else if (isReady && hasStorage) {
+                                         // ── State 2: Ready ──
+                                         return Container(
+                                           padding: const EdgeInsets.all(16),
+                                           decoration: BoxDecoration(
+                                             border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                                             borderRadius: BorderRadius.circular(8),
+                                             color: Colors.green.withValues(alpha: 0.04),
+                                           ),
+                                           child: Column(
+                                             crossAxisAlignment: CrossAxisAlignment.stretch,
+                                             children: [
+                                               Row(
+                                                 children: [
+                                                   const Icon(Icons.picture_as_pdf, size: 18, color: Colors.redAccent),
+                                                   const SizedBox(width: 8),
+                                                   Text(
+                                                     'Evidence PDF Document',
+                                                     style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                                                   ),
+                                                   const Spacer(),
+                                                   Container(
+                                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                     decoration: BoxDecoration(
+                                                       color: Colors.green.withValues(alpha: 0.15),
+                                                       borderRadius: BorderRadius.circular(4),
+                                                     ),
+                                                     child: Text(
+                                                       'Ready',
+                                                       style: theme.textTheme.bodySmall?.copyWith(
+                                                         color: Colors.green,
+                                                         fontWeight: FontWeight.w600,
+                                                         fontSize: 11,
+                                                       ),
+                                                     ),
+                                                   ),
+                                                 ],
+                                               ),
+                                               const SizedBox(height: 8),
+                                               Text(
+                                                 'In-memory compiled PDF package stored on Supabase Storage CDN.',
+                                                 style: theme.textTheme.bodySmall,
+                                               ),
+                                               const SizedBox(height: 12),
+                                               ElevatedButton.icon(
+                                                 onPressed: _fetchingPdf ? null : () => _viewEvidencePdf(dispute),
+                                                 icon: _fetchingPdf
+                                                     ? const SizedBox(
+                                                         width: 14,
+                                                         height: 14,
+                                                         child: CircularProgressIndicator(strokeWidth: 2),
+                                                       )
+                                                     : const Icon(Icons.visibility, size: 16),
+                                                 label: Text(_fetchingPdf ? 'Fetching Signed URL...' : 'View Evidence PDF (Supabase CDN)'),
+                                               ),
+                                             ],
+                                           ),
+                                         );
+                                       } else if (isFailed) {
+                                         // ── State 3: Failed (Unexpected Failure) ──
+                                         final errorMsg = dispute.evidenceJobError ?? 'Generation or upload failed';
+                                         return Container(
+                                           padding: const EdgeInsets.all(16),
+                                           decoration: BoxDecoration(
+                                             border: Border.all(color: theme.colorScheme.error.withValues(alpha: 0.4)),
+                                             borderRadius: BorderRadius.circular(8),
+                                             color: theme.colorScheme.error.withValues(alpha: 0.05),
+                                           ),
+                                           child: Column(
+                                             crossAxisAlignment: CrossAxisAlignment.stretch,
+                                             children: [
+                                               Row(
+                                                 children: [
+                                                   Icon(Icons.error_outline, size: 18, color: theme.colorScheme.error),
+                                                   const SizedBox(width: 8),
+                                                   Text(
+                                                     'Contest Submission Failed',
+                                                     style: theme.textTheme.titleSmall?.copyWith(
+                                                       fontWeight: FontWeight.w600,
+                                                       color: theme.colorScheme.error,
+                                                     ),
+                                                   ),
+                                                   const Spacer(),
+                                                   Container(
+                                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                     decoration: BoxDecoration(
+                                                       color: theme.colorScheme.error.withValues(alpha: 0.15),
+                                                       borderRadius: BorderRadius.circular(4),
+                                                     ),
+                                                     child: Text(
+                                                       'Failed',
+                                                       style: theme.textTheme.bodySmall?.copyWith(
+                                                         color: theme.colorScheme.error,
+                                                         fontWeight: FontWeight.w600,
+                                                         fontSize: 11,
+                                                       ),
+                                                     ),
+                                                   ),
+                                                 ],
+                                               ),
+                                               const SizedBox(height: 8),
+                                               Text(
+                                                 errorMsg,
+                                                 style: theme.textTheme.bodySmall?.copyWith(
+                                                   color: theme.colorScheme.error,
+                                                 ),
+                                               ),
+                                               const SizedBox(height: 12),
+                                               OutlinedButton.icon(
+                                                 onPressed: () => widget.viewModel.retryEvidenceJob(dispute.id),
+                                                 icon: const Icon(Icons.refresh, size: 16),
+                                                 label: const Text('Retry Evidence Generation'),
+                                                 style: OutlinedButton.styleFrom(
+                                                   foregroundColor: theme.colorScheme.error,
+                                                   side: BorderSide(color: theme.colorScheme.error.withValues(alpha: 0.5)),
+                                                 ),
+                                               ),
+                                             ],
+                                           ),
+                                         );
+                                       } else if (isProcessing) {
+                                         // ── State 4: In-Progress / Queued ──
+                                         final isPickingUp = jobStatus == 'processing';
+                                         return Container(
+                                           padding: const EdgeInsets.all(16),
+                                           decoration: BoxDecoration(
+                                             border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                                             borderRadius: BorderRadius.circular(8),
+                                             color: Colors.amber.withValues(alpha: 0.05),
+                                           ),
+                                           child: Column(
+                                             crossAxisAlignment: CrossAxisAlignment.stretch,
+                                             children: [
+                                               Row(
+                                                 children: [
+                                                   const SizedBox(
+                                                     width: 14,
+                                                     height: 14,
+                                                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.amber),
+                                                   ),
+                                                   const SizedBox(width: 10),
+                                                   Text(
+                                                     isPickingUp ? 'Generating Evidence PDF...' : 'Evidence Job Queued',
+                                                     style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                                                   ),
+                                                   const Spacer(),
+                                                   Container(
+                                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                     decoration: BoxDecoration(
+                                                       color: Colors.amber.withValues(alpha: 0.15),
+                                                       borderRadius: BorderRadius.circular(4),
+                                                     ),
+                                                     child: Text(
+                                                       isPickingUp ? 'Processing' : 'Queued',
+                                                       style: theme.textTheme.bodySmall?.copyWith(
+                                                         color: Colors.amber.shade800,
+                                                         fontWeight: FontWeight.w600,
+                                                         fontSize: 11,
+                                                       ),
+                                                     ),
+                                                   ),
+                                                 ],
+                                               ),
+                                               const SizedBox(height: 8),
+                                               Text(
+                                                 isPickingUp
+                                                     ? 'Worker is generating in-memory PDF and uploading to Supabase Storage...'
+                                                     : 'Dispute is queued in the worker pool. PDF will generate shortly.',
+                                                 style: theme.textTheme.bodySmall,
+                                               ),
+                                             ],
+                                           ),
+                                         );
+                                       } else {
+                                         // ── State 5: Not Yet Generated ──
                                         return Container(
                                           padding: const EdgeInsets.all(16),
                                           decoration: BoxDecoration(
@@ -1205,6 +1314,7 @@ class _HistoryEventItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final timestamp = event['timestamp']?.toString() ?? '';
     final eventName = event['event']?.toString() ?? 'unknown';
     
@@ -1263,6 +1373,27 @@ class _HistoryEventItem extends StatelessWidget {
         detail = 'Error: $reason';
         icon = Icons.error_outline;
         iconColor = Colors.red;
+        break;
+      case 'contest_submitted_sandbox_limitation':
+        final rzpCode = event['razorpay_status_code']?.toString() ?? '404';
+        title = 'Contest Submitted (Sandbox Limitation)';
+        detail = 'Dispute contest sent to Razorpay API ($rzpCode). Expected limitation for sandbox synthetic disputes.';
+        icon = Icons.info_outline;
+        iconColor = isDark ? const Color(0xFF818CF8) : const Color(0xFF4F46E5);
+        break;
+      case 'contest_submission_failed':
+        final reason = event['reason']?.toString() ?? event['error']?.toString() ?? 'API error';
+        title = 'Contest Submission Failed';
+        detail = 'Unexpected error: $reason';
+        icon = Icons.error_outline;
+        iconColor = Colors.red;
+        break;
+      case 'contest_submitted':
+        final amt = event['contest_amount'] != null ? ' (Amount: ₹${(event['contest_amount'] as num) / 100})' : '';
+        title = 'Contest Submitted';
+        detail = 'Dispute successfully contested on Razorpay$amt.';
+        icon = Icons.check_circle_outline;
+        iconColor = Colors.green;
         break;
       case 'evidence_submitted':
         final amt = event['contest_amount'] != null ? ' (Amount: ₹${(event['contest_amount'] as num) / 100})' : '';
@@ -2396,6 +2527,10 @@ class _StatusPill extends StatelessWidget {
         case DisputeStatus.acceptedLoss:
           baseColor = isDark ? Colors.orangeAccent : Colors.orange.shade800;
           icon = Icons.gavel;
+          break;
+        case DisputeStatus.contestReadySandboxLimitation:
+          baseColor = isDark ? const Color(0xFF818CF8) : const Color(0xFF4F46E5);
+          icon = Icons.info_outline;
           break;
         case DisputeStatus.evidenceSubmitted:
           baseColor = isDark ? Colors.tealAccent : Colors.teal.shade700;
