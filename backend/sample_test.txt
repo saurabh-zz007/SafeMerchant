@@ -1,109 +1,427 @@
+// ==============================================================================
+// SafeMerchant — Sample Dispute Webhook Payloads (Gate-Decision Coverage)
+// ==============================================================================
+// Webhook Endpoint: POST /api/v1/webhook
+//
+// 1. Signature Verification Requirement:
+//    Every incoming webhook request MUST include the HMAC-SHA256 signature header:
+//      Header: X-Razorpay-Signature: <hex_signature>
+//      Secret: RAZORPAY_WEBHOOK_SECRET (from .env, default: whsec_8kQ2vN9xZmR7pL4tY6bJ3cF1dK5wA0hE)
+//
+//    Python Signature Generator Example:
+//      import hmac, hashlib
+//      sig = hmac.new(secret.encode('utf-8'), raw_body_bytes, hashlib.sha256).hexdigest()
+//
+//    cURL Command Example:
+//      curl -X POST http://localhost:8000/api/v1/webhook \
+//        -H "Content-Type: application/json" \
+//        -H "X-Razorpay-Signature: <GENERATED_SIGNATURE>" \
+//        -d @payload.json
+//
+// Gate Decisions Covered:
+//   Payload 1: ORD_2001 -> AUTO_REFUND (Legitimate claim, low value <= ₹5,000)
+//   Payload 2: ORD_2002 -> REFUND_REVIEW (Legitimate claim, high value > ₹5,000 -> HITL)
+//   Payload 3: ORD_2003 -> AUTO_SUBMIT (Strong winnable defense, low value -> Contest)
+//   Payload 4: ORD_2004 -> HUMAN_REVIEW (Ambiguous evidence, high value -> HITL Contest Review)
+//   Payload 5: ORD_2005 -> ACCEPT_LOSS (Weak/no evidence, unmerited claim -> Accept Loss)
+// ==============================================================================
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PAYLOAD 1: ORD_2001 -> AUTO_REFUND (Earbuds ₹2,999 — Lost in Transit)
+// ──────────────────────────────────────────────────────────────────────────────
 {
   "entity": "event",
-  "account_id": "acc_TestMerchant123",
+  "account_id": "acc_CFvOKjkTwf3GQy",
   "event": "payment.dispute.created",
   "contains": ["payment", "dispute"],
   "payload": {
     "payment": {
       "entity": {
-        "id": "pay_XYZ1003",
+        "id": "pay_XYZ2001",
         "entity": "payment",
-        "amount": 450000,
+        "amount": 299900,
         "currency": "INR",
+        "base_amount": 299900,
         "status": "captured",
-        "order_id": "ORD_1003",
-        "email": "angry_buyer@outlook.com",
-        "contact": "+917777777777"
+        "order_id": "ORD_2001",
+        "invoice_id": null,
+        "international": false,
+        "method": "card",
+        "amount_refunded": 0,
+        "amount_transferred": 0,
+        "refund_status": null,
+        "captured": true,
+        "description": "Bluetooth Earbuds Pro",
+        "card_id": "card_EADblPSDnnk5ZG",
+        "bank": "HDFC",
+        "wallet": null,
+        "vpa": null,
+        "email": "priya.sharma@gmail.com",
+        "contact": "+919876543210",
+        "notes": [],
+        "fee": 0,
+        "tax": 0,
+        "error_code": null,
+        "error_description": null,
+        "error_source": null,
+        "error_step": null,
+        "error_reason": null,
+        "acquirer_data": {},
+        "created_at": 1722852000
       }
     },
     "dispute": {
       "entity": {
-        "id": "disp_C3003",
+        "id": "disp_2001",
         "entity": "dispute",
-        "payment_id": "pay_XYZ1003",
-        "amount": 450000,
+        "payment_id": "pay_XYZ2001",
+        "amount": 299900,
         "currency": "INR",
-        "reason_code": "not_as_described",
-        "reason_description": "Item received was fundamentally different from listing.",
-        "phase": "chargeback",
+        "amount_deducted": 0,
+        "reason_code": "product_not_received",
+        "respond_by": 1723370400,
         "status": "open",
-        "created_at": 1718881000
+        "evidence": {
+          "amount": 299900,
+          "summary": null,
+          "shipping_proof": null,
+          "billing_proof": null,
+          "cancellation_proof": null,
+          "customer_communication": null,
+          "proof_of_service": null,
+          "explanation_letter": null,
+          "refund_confirmation": null,
+          "access_activity_log": null,
+          "refund_cancellation_policy": null,
+          "term_and_conditions": null,
+          "others": null,
+          "submitted_at": null
+        },
+        "phase": "chargeback",
+        "created_at": 1722852000
       }
     }
-  }
+  },
+  "created_at": 1722852000
 }
 
 
-
+// ──────────────────────────────────────────────────────────────────────────────
+// PAYLOAD 2: ORD_2002 -> REFUND_REVIEW / HITL (iPad ₹24,999 — Lost in Transit)
+// ──────────────────────────────────────────────────────────────────────────────
 {
   "entity": "event",
-  "account_id": "acc_TestMerchant123",
+  "account_id": "acc_CFvOKjkTwf3GQy",
   "event": "payment.dispute.created",
   "contains": ["payment", "dispute"],
   "payload": {
     "payment": {
       "entity": {
-        "id": "pay_XYZ1002",
+        "id": "pay_XYZ2002",
         "entity": "payment",
-        "amount": 1500000,
+        "amount": 2499900,
         "currency": "INR",
+        "base_amount": 2499900,
         "status": "captured",
-        "order_id": "ORD_1002",
-        "email": "hacked_account@yahoo.com",
-        "contact": "+918888888888"
+        "order_id": "ORD_2002",
+        "invoice_id": null,
+        "international": false,
+        "method": "card",
+        "amount_refunded": 0,
+        "amount_transferred": 0,
+        "refund_status": null,
+        "captured": true,
+        "description": "Apple iPad 9th Gen 64GB",
+        "card_id": "card_EADblPSDnnk5ZG",
+        "bank": "ICICI",
+        "wallet": null,
+        "vpa": null,
+        "email": "rahul.mehta@gmail.com",
+        "contact": "+919876543211",
+        "notes": [],
+        "fee": 0,
+        "tax": 0,
+        "error_code": null,
+        "error_description": null,
+        "error_source": null,
+        "error_step": null,
+        "error_reason": null,
+        "acquirer_data": {},
+        "created_at": 1723027200
       }
     },
     "dispute": {
       "entity": {
-        "id": "disp_B2002",
+        "id": "disp_2002",
         "entity": "dispute",
-        "payment_id": "pay_XYZ1002",
-        "amount": 1500000,
+        "payment_id": "pay_XYZ2002",
+        "amount": 2499900,
         "currency": "INR",
-        "reason_code": "unauthorized_transaction",
-        "reason_description": "Cardholder does not recognize this charge.",
+        "amount_deducted": 0,
+        "reason_code": "product_not_received",
+        "respond_by": 1723545600,
+        "status": "open",
+        "evidence": {
+          "amount": 2499900,
+          "summary": null,
+          "shipping_proof": null,
+          "billing_proof": null,
+          "cancellation_proof": null,
+          "customer_communication": null,
+          "proof_of_service": null,
+          "explanation_letter": null,
+          "refund_confirmation": null,
+          "access_activity_log": null,
+          "refund_cancellation_policy": null,
+          "term_and_conditions": null,
+          "others": null,
+          "submitted_at": null
+        },
+        "phase": "chargeback",
+        "created_at": 1723027200
+      }
+    }
+  },
+  "created_at": 1723027200
+}
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PAYLOAD 3: ORD_2003 -> AUTO_SUBMIT Contest (Shoes ₹3,499 — OTP Delivered)
+// ──────────────────────────────────────────────────────────────────────────────
+{
+  "entity": "event",
+  "account_id": "acc_CFvOKjkTwf3GQy",
+  "event": "payment.dispute.created",
+  "contains": ["payment", "dispute"],
+  "payload": {
+    "payment": {
+      "entity": {
+        "id": "pay_XYZ2003",
+        "entity": "payment",
+        "amount": 349900,
+        "currency": "INR",
+        "base_amount": 349900,
+        "status": "captured",
+        "order_id": "ORD_2003",
+        "invoice_id": null,
+        "international": false,
+        "method": "card",
+        "amount_refunded": 0,
+        "amount_transferred": 0,
+        "refund_status": null,
+        "captured": true,
+        "description": "Nike Running Shoes - Size 9",
+        "card_id": "card_EADblPSDnnk5ZG",
+        "bank": "SBI",
+        "wallet": null,
+        "vpa": null,
+        "email": "friendly_fraud1@outlook.com",
+        "contact": "+919876543212",
+        "notes": [],
+        "fee": 0,
+        "tax": 0,
+        "error_code": null,
+        "error_description": null,
+        "error_source": null,
+        "error_step": null,
+        "error_reason": null,
+        "acquirer_data": {},
+        "created_at": 1723370400
+      }
+    },
+    "dispute": {
+      "entity": {
+        "id": "disp_2003",
+        "entity": "dispute",
+        "payment_id": "pay_XYZ2003",
+        "amount": 349900,
+        "currency": "INR",
+        "amount_deducted": 0,
+        "reason_code": "product_not_received",
+        "respond_by": 1723888800,
+        "status": "open",
+        "evidence": {
+          "amount": 349900,
+          "summary": null,
+          "shipping_proof": null,
+          "billing_proof": null,
+          "cancellation_proof": null,
+          "customer_communication": null,
+          "proof_of_service": null,
+          "explanation_letter": null,
+          "refund_confirmation": null,
+          "access_activity_log": null,
+          "refund_cancellation_policy": null,
+          "term_and_conditions": null,
+          "others": null,
+          "submitted_at": null
+        },
+        "phase": "chargeback",
+        "created_at": 1723370400
+      }
+    }
+  },
+  "created_at": 1723370400
+}
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PAYLOAD 4: ORD_2004 -> HUMAN_REVIEW Contest (Monitor ₹18,500 — Left at Door)
+// ──────────────────────────────────────────────────────────────────────────────
+{
+  "entity": "event",
+  "account_id": "acc_CFvOKjkTwf3GQy",
+  "event": "payment.dispute.created",
+  "contains": ["payment", "dispute"],
+  "payload": {
+    "payment": {
+      "entity": {
+        "id": "pay_XYZ2004",
+        "entity": "payment",
+        "amount": 1850000,
+        "currency": "INR",
+        "base_amount": 1850000,
+        "status": "captured",
+        "order_id": "ORD_2004",
+        "invoice_id": null,
+        "international": false,
+        "method": "card",
+        "amount_refunded": 0,
+        "amount_transferred": 0,
+        "refund_status": null,
+        "captured": true,
+        "description": "Samsung 27\" Monitor",
+        "card_id": "card_EADblPSDnnk5ZG",
+        "bank": "Axis",
+        "wallet": null,
+        "vpa": null,
+        "email": "ambiguous_case@yahoo.com",
+        "contact": "+919876543213",
+        "notes": [],
+        "fee": 0,
+        "tax": 0,
+        "error_code": null,
+        "error_description": null,
+        "error_source": null,
+        "error_step": null,
+        "error_reason": null,
+        "acquirer_data": {},
+        "created_at": 1723564800
+      }
+    },
+    "dispute": {
+      "entity": {
+        "id": "disp_2004",
+        "entity": "dispute",
+        "payment_id": "pay_XYZ2004",
+        "amount": 1850000,
+        "currency": "INR",
+        "amount_deducted": 0,
+        "reason_code": "product_unacceptable",
+        "respond_by": 1724083200,
+        "status": "open",
+        "evidence": {
+          "amount": 1850000,
+          "summary": null,
+          "shipping_proof": null,
+          "billing_proof": null,
+          "cancellation_proof": null,
+          "customer_communication": null,
+          "proof_of_service": null,
+          "explanation_letter": null,
+          "refund_confirmation": null,
+          "access_activity_log": null,
+          "refund_cancellation_policy": null,
+          "term_and_conditions": null,
+          "others": null,
+          "submitted_at": null
+        },
+        "phase": "chargeback",
+        "created_at": 1723564800
+      }
+    }
+  },
+  "created_at": 1723564800
+}
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PAYLOAD 5: ORD_2005 -> ACCEPT_LOSS (Phone Case ₹1,299 — Weak Defense/High Risk)
+// ──────────────────────────────────────────────────────────────────────────────
+{
+  "entity": "event",
+  "account_id": "acc_CFvOKjkTwf3GQy",
+  "event": "payment.dispute.created",
+  "contains": ["payment", "dispute"],
+  "payload": {
+    "payment": {
+      "entity": {
+        "id": "pay_XYZ2005",
+        "entity": "payment",
+        "amount": 129900,
+        "currency": "INR",
+        "base_amount": 129900,
+        "status": "captured",
+        "order_id": "ORD_2005",
+        "invoice_id": null,
+        "international": false,
+        "method": "card",
+        "amount_refunded": 0,
+        "amount_transferred": 0,
+        "refund_status": null,
+        "captured": true,
+        "description": "Phone Case - Clear",
+        "card_id": "card_EADblPSDnnk5ZG",
+        "bank": "Kotak",
+        "wallet": null,
+        "vpa": null,
+        "email": "ghost_buyer@protonmail.com",
+        "contact": "+919876543214",
+        "notes": [],
+        "fee": 0,
+        "tax": 0,
+        "error_code": null,
+        "error_description": null,
+        "error_source": null,
+        "error_step": null,
+        "error_reason": null,
+        "acquirer_data": {},
+        "created_at": 1723806000
+      }
+    },
+    "dispute": {
+      "entity": {
+        "id": "disp_2005",
+        "entity": "dispute",
+        "payment_id": "pay_XYZ2005",
+        "amount": 129900,
+        "currency": "INR",
+        "amount_deducted": 0,
+        "reason_code": "fraud",
+        "respond_by": 1724324400,
+        "status": "open",
+        "evidence": {
+          "amount": 129900,
+          "summary": null,
+          "shipping_proof": null,
+          "billing_proof": null,
+          "cancellation_proof": null,
+          "customer_communication": null,
+          "proof_of_service": null,
+          "explanation_letter": null,
+          "refund_confirmation": null,
+          "access_activity_log": null,
+          "refund_cancellation_policy": null,
+          "term_and_conditions": null,
+          "others": null,
+          "submitted_at": null
+        },
         "phase": "fraud",
-        "status": "open",
-        "created_at": 1718880500
+        "created_at": 1723806000
       }
     }
-  }
-}
-
-
-
-
-{
-  "entity": "event",
-  "account_id": "acc_TestMerchant123",
-  "event": "payment.dispute.created",
-  "contains": ["payment", "dispute"],
-  "payload": {
-    "payment": {
-      "entity": {
-        "id": "pay_XYZ1001",
-        "entity": "payment",
-        "amount": 5297600,
-        "currency": "INR",
-        "status": "captured",
-        "order_id": "ORD_1001",
-        "email": "scammer1@gmail.com",
-        "contact": "+919999999999"
-      }
-    },
-    "dispute": {
-      "entity": {
-        "id": "disp_A1001",
-        "entity": "dispute",
-        "payment_id": "pay_XYZ1001",
-        "amount": 5297600,
-        "currency": "INR",
-        "reason_code": "item_not_received",
-        "reason_description": "Customer claims the package never arrived.",
-        "phase": "chargeback",
-        "status": "open",
-        "created_at": 1718880000
-      }
-    }
-  }
+  },
+  "created_at": 1723806000
 }

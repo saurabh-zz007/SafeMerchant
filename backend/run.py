@@ -1,21 +1,19 @@
 """
-Entry point for running the SafeMerchant backend with uvicorn.
-
-Sets the Windows event loop policy before uvicorn creates its event loop,
-which is required for psycopg (async) compatibility.
-
-Usage:
-    python run.py
+SafeMerchant Backend Server Entrypoint.
+Configures Windows SelectorEventLoop for psycopg async compatibility and launches Uvicorn.
 """
 
-import asyncio
-import platform
 import sys
+import asyncio
+import selectors
 
-# psycopg (async) requires SelectorEventLoop on Windows.
-# This MUST be set before uvicorn creates its event loop.
-if platform.system() == "Windows":
+if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    try:
+        import uvicorn.loops.asyncio
+        uvicorn.loops.asyncio.asyncio_loop_factory = lambda use_subprocess=False: lambda: asyncio.SelectorEventLoop(selectors.SelectSelector())
+    except Exception:
+        pass
 
 import uvicorn
 
@@ -24,6 +22,6 @@ if __name__ == "__main__":
         "app.main:app",
         host="0.0.0.0",
         port=8000,
-        reload=True,
-        log_level="info",
+        loop="asyncio",
+        reload=False,
     )

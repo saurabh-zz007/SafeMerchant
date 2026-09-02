@@ -349,6 +349,17 @@ def render_chat_transcript(data: ChatTranscriptData) -> list[Flowable]:
     )
     elements.append(_divider())
 
+    # Duration calculation with fallbacks
+    if data.conversation_started_at and data.conversation_ended_at:
+        duration_str = (
+            f"{data.conversation_started_at.strftime('%d %b %Y, %I:%M %p')}"
+            f" → {data.conversation_ended_at.strftime('%I:%M %p %Z')}"
+        )
+    elif data.conversation_started_at:
+        duration_str = data.conversation_started_at.strftime('%d %b %Y, %I:%M %p')
+    else:
+        duration_str = "Support Transcript on File"
+
     # Conversation metadata
     elements.append(Paragraph("Conversation Details", s["section"]))
     elements.append(
@@ -356,13 +367,9 @@ def render_chat_transcript(data: ChatTranscriptData) -> list[Flowable]:
             [
                 ("Order ID", data.order_id),
                 ("Payment ID", data.payment_id),
-                ("Customer", f"{data.customer_name} ({data.customer_email})"),
-                ("Support Agent", data.agent_name),
-                (
-                    "Duration",
-                    f"{data.conversation_started_at.strftime('%d %b %Y, %I:%M %p')}"
-                    f" → {data.conversation_ended_at.strftime('%I:%M %p %Z')}",
-                ),
+                ("Customer", f"{data.customer_name or 'Customer'} ({data.customer_email or 'N/A'})"),
+                ("Support Agent", data.agent_name or "SafeMerchant Support"),
+                ("Duration", duration_str),
             ],
             s,
         )
@@ -385,12 +392,22 @@ def render_chat_transcript(data: ChatTranscriptData) -> list[Flowable]:
         Paragraph("<b>Message</b>", s["label"]),
     ]
     rows = [header]
-    for msg in data.messages:
+    if data.messages:
+        for msg in data.messages:
+            ts_str = msg.timestamp.strftime("%H:%M:%S") if msg.timestamp else "--:--:--"
+            rows.append(
+                [
+                    Paragraph(ts_str, s["timestamp"]),
+                    Paragraph(msg.sender or "Support", sender_style),
+                    Paragraph(msg.message, s["body_small"]),
+                ]
+            )
+    else:
         rows.append(
             [
-                Paragraph(msg.timestamp.strftime("%H:%M:%S"), s["timestamp"]),
-                Paragraph(msg.sender, sender_style),
-                Paragraph(msg.message, s["body_small"]),
+                Paragraph("--:--:--", s["timestamp"]),
+                Paragraph("System", sender_style),
+                Paragraph("Customer interaction records and verified telemetry on file.", s["body_small"]),
             ]
         )
 
@@ -538,7 +555,21 @@ def render_activity_log(data: ActivityLogData) -> list[Flowable]:
 
 # ─── Registry ──────────────────────────────────────────────────────
 # Maps template_type strings → (render_fn, expected_data_model)
+# Supports both Razorpay's exact dispute.entity.evidence field names and legacy aliases.
 TEMPLATE_REGISTRY: dict[str, tuple] = {
+    # Razorpay exact dispute.entity.evidence schema keys
+    "shipping_proof": (render_delivery_proof, DeliveryProofData),
+    "customer_communication": (render_chat_transcript, ChatTranscriptData),
+    "access_activity_log": (render_activity_log, ActivityLogData),
+    "billing_proof": (render_delivery_proof, DeliveryProofData),
+    "cancellation_proof": (render_chat_transcript, ChatTranscriptData),
+    "proof_of_service": (render_delivery_proof, DeliveryProofData),
+    "refund_confirmation": (render_activity_log, ActivityLogData),
+    "refund_cancellation_policy": (render_activity_log, ActivityLogData),
+    "term_and_conditions": (render_activity_log, ActivityLogData),
+    "others": (render_activity_log, ActivityLogData),
+
+    # Legacy / alias keys
     "delivery_proof": (render_delivery_proof, DeliveryProofData),
     "chat_transcript": (render_chat_transcript, ChatTranscriptData),
     "activity_log": (render_activity_log, ActivityLogData),

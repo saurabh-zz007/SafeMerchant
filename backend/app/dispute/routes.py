@@ -9,14 +9,17 @@ Endpoints:
 """
 
 
-from __future__ import annotations
-
+import hashlib
+import hmac
 import logging
+from datetime import datetime, timezone
 from typing import Any
 from sqlalchemy import text
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 
+from app.core.config import settings
 from app.core.db import async_session_factory
 from app.dispute.dispute_repository import DisputeRepository
 from app.dispute.metrics_repository import MetricsRepository
@@ -60,161 +63,158 @@ async def process_dispute_and_broadcast(
     compiled_graph,
 ) -> None:
     config = _make_config(dispute_id)
-    webhook_payload = event.model_dump(mode="json")
-
     dispute_entity = event.payload.dispute.entity
-    payment_entity = event.payload.payment.entity
 
-    # ==========================================
-    # 🍞 TOP BUN (Fast DB Write - 1 Connection)
-    # ==========================================
+    # Safeguard idempotency check before running the LangGraph workflow
     async with async_session_factory() as session:
-        metrics_repo = MetricsRepository(session)
         repo = DisputeRepository(session)
-        
-        await metrics_repo.record_event(
-            dispute_id=dispute_id,
-            event_type="webhook_received",
-            payload=webhook_payload,
-        )
-        
-        await repo.create_dispute(
-            dispute_id=dispute_id,
-            webhook_payload=webhook_payload,
-            amount_paise=dispute_entity.amount,
-            reason_code=dispute_entity.reason_code,
-            customer_email=payment_entity.email,
-            payment_id=payment_entity.id,
-            order_id=payment_entity.order_id,
-            phase=dispute_entity.phase,
-        )
-        # MUST be inside the block!
-        await session.commit() 
-    
-    # Trigger incremental daily metrics update for today
-    await metrics_service.on_dispute_ingested(
-        dispute_id=dispute_id,
-        webhook_payload=webhook_payload,
-        amount_paise=dispute_entity.amount,
-    )
+        existing = await repo.get_dispute(dispute_id)
+        if existing:
+            phase = (existing.phase or "").lower()
+            if (phase in ("chargeback", "contested") and existing.status in ("under_review", "resolved")) or existing.document_id:
+                logger.info("Dispute already processed: %s", dispute_id)
+                return
 
-    # ==========================================
-    # 🥩 THE MEAT (LangGraph - ZERO DB Connections)
-    # ==========================================
-    error_msg = None
-    is_paused = False
-    graph_state = None
-    
     try:
-        async for update in dispute_service.stream_dispute(event, compiled_graph, config):
-            await manager.broadcast_system_event({
-                "event": "node_update",
-                "dispute_id": dispute_id,
-                **update,
-            })
-
-        graph_state = await compiled_graph.aget_state(config)
-        is_paused = bool(graph_state.next)
+        # ==========================================
+        # 🥩 THE MEAT (LangGraph - ZERO DB Connections)
+        # ==========================================
+        error_msg = None
+        is_paused = False
+        graph_state = None
         
-    except Exception as exc:
-        logger.exception("Background processing failed for dispute %s", dispute_id)
-        error_msg = str(exc)
+        try:
+            async for update in dispute_service.stream_dispute(event, compiled_graph, config):
+                await manager.broadcast_system_event({
+                    "event": "node_update",
+                    "dispute_id": dispute_id,
+                    **update,
+                })
 
-    # ==========================================
-    # 🍞 BOTTOM BUN (Fast DB Update - 1 Connection)
-    # ==========================================
-    async with async_session_factory() as session:
-        repo = DisputeRepository(session)
-        
-        if error_msg:
-            # Handle Error State
-            await repo.update_status(dispute_id, "error")
-            await repo.append_history(dispute_id, {
-                "event": "execution_error",
-                "error": error_msg,
-            })
-            await session.commit()
+            graph_state = await compiled_graph.aget_state(config)
+            is_paused = bool(graph_state.next)
             
-            await manager.broadcast_system_event({
-                "event": "execution_error",
-                "dispute_id": dispute_id,
-                "error": error_msg,
-            })
-            
-        elif is_paused:
-            # Handle HITL Paused State
-            paused_node = graph_state.next[0] if graph_state.next else "unknown"
-            logger.info("Dispute %s paused at interrupt: %s", dispute_id, paused_node)
-            
-            await repo.update_status(dispute_id, "awaiting_review")
-            await repo.append_history(dispute_id, {
-                "event": "human_review_required",
-                "paused_node": paused_node,
-            })
-            await session.commit()
-            
-            state_values = _safe_serialise(graph_state.values)
-            await manager.broadcast_system_event({
-                "event": "human_review_required",
-                "dispute_id": dispute_id,
-                "paused_node": paused_node,
-                "data": state_values,
-            })
-            
-        else:
-            state_values = _safe_serialise(graph_state.values) if graph_state else {}
-            gate_action = state_values.get("gate_action")
-            case_resolution = state_values.get("case_resolution")
+        except Exception as exc:
+            logger.exception("Background processing failed for dispute %s", dispute_id)
+            error_msg = str(exc)
 
-            final_status = "under_review" if case_resolution == "resolved_contested" else "resolved"
-            job_enqueued = False
+        # ==========================================
+        # 🍞 BOTTOM BUN (Fast DB Update - 1 Connection)
+        # ==========================================
+        async with async_session_factory() as session:
+            repo = DisputeRepository(session)
             
-            # Enqueue asynchronous evidence generation job if contested
-            if case_resolution == "resolved_contested":
+            if error_msg:
+                # Handle Error State
+                await repo.update_status(dispute_id, "error")
+                await repo.append_history(dispute_id, {
+                    "event": "execution_error",
+                    "error": error_msg,
+                })
+                await session.commit()
+                
+                await manager.broadcast_system_event({
+                    "event": "execution_error",
+                    "dispute_id": dispute_id,
+                    "error": error_msg,
+                })
+                
+            elif is_paused:
+                # Handle HITL Paused State
+                paused_node = graph_state.next[0] if graph_state.next else "unknown"
+                logger.info("Dispute %s paused at interrupt: %s", dispute_id, paused_node)
+                
+                await repo.update_status(dispute_id, "awaiting_review")
+                await repo.append_history(dispute_id, {
+                    "event": "human_review_required",
+                    "paused_node": paused_node,
+                })
+                await session.commit()
+                
+                state_values = _safe_serialise(graph_state.values)
+                await manager.broadcast_system_event({
+                    "event": "human_review_required",
+                    "dispute_id": dispute_id,
+                    "paused_node": paused_node,
+                    "data": state_values,
+                })
+                
+            else:
+                state_values = _safe_serialise(graph_state.values) if graph_state else {}
+                gate_action = state_values.get("gate_action")
+                case_resolution = state_values.get("case_resolution")
+
+                final_status = "under_review" if case_resolution == "resolved_contested" else "resolved"
+                job_enqueued = False
+                
+                # Enqueue asynchronous evidence generation job if contested
+                if case_resolution == "resolved_contested":
+                    try:
+                        job = await repo.create_evidence_job(dispute_id)
+                        await repo.append_history(dispute_id, {
+                            "event": "job_queued",
+                            "job_id": job.id,
+                            "queued_at": datetime.now(timezone.utc).isoformat(),
+                        })
+                        job_enqueued = True
+                        logger.info("Enqueued evidence job #%d for dispute %s upon completion", job.id, dispute_id)
+                    except Exception as exc:
+                        logger.exception("Failed to enqueue evidence job for dispute %s: %s", dispute_id, exc)
+
+                await repo.update_status(dispute_id, final_status, case_resolution=case_resolution)
+                await repo.append_history(dispute_id, {
+                    "event": "execution_completed",
+                    "data": {
+                        "gate_action": gate_action,
+                        "case_resolution": case_resolution,
+                    }
+                })
+                await session.commit()
+
+                if job_enqueued:
+                    from app.dispute.worker import evidence_worker
+                    evidence_worker.notify()
+
+                await manager.broadcast_system_event({
+                    "event": "execution_completed",
+                    "dispute_id": dispute_id,
+                    "data": {
+                        "gate_action": gate_action,
+                        "case_resolution": case_resolution,
+                    }
+                })
+                
+                outcome = {"resolved_contested": "won", "resolved_refunded": "lost", 
+                           "resolved_accepted_loss": "accepted_loss"}.get(case_resolution or "", "open")
+                
                 try:
-                    job = await repo.create_evidence_job(dispute_id)
-                    from datetime import datetime, timezone
-                    await repo.append_history(dispute_id, {
-                        "event": "job_queued",
-                        "job_id": job.id,
-                        "queued_at": datetime.now(timezone.utc).isoformat(),
-                    })
-                    job_enqueued = True
-                    logger.info("Enqueued evidence job #%d for dispute %s upon completion", job.id, dispute_id)
-                except Exception as exc:
-                    logger.exception("Failed to enqueue evidence job for dispute %s: %s", dispute_id, exc)
+                    await metrics_service.on_dispute_resolved(
+                        dispute_id=dispute_id,
+                        outcome=outcome,
+                        amount_paise=dispute_entity.amount or 0,
+                    )
+                except Exception as m_exc:
+                    logger.warning("Metrics update failed for dispute %s: %s", dispute_id, m_exc)
 
-            await repo.update_status(dispute_id, final_status, case_resolution=case_resolution)
-            await repo.append_history(dispute_id, {
-                "event": "execution_completed",
-                "data": {
-                    "gate_action": gate_action,
-                    "case_resolution": case_resolution,
-                }
-            })
-            await session.commit()
-
-            if job_enqueued:
-                from app.dispute.worker import evidence_worker
-                evidence_worker.notify()
+    except Exception as global_exc:
+        logger.exception("Unhandled global exception in process_dispute_and_broadcast for dispute %s: %s", dispute_id, global_exc)
+        try:
+            async with async_session_factory() as session:
+                repo = DisputeRepository(session)
+                await repo.update_status(dispute_id, "error")
+                await repo.append_history(dispute_id, {
+                    "event": "execution_error",
+                    "error": str(global_exc),
+                })
+                await session.commit()
 
             await manager.broadcast_system_event({
-                "event": "execution_completed",
+                "event": "execution_error",
                 "dispute_id": dispute_id,
-                "data": {
-                    "gate_action": gate_action,
-                    "case_resolution": case_resolution,
-                }
+                "error": str(global_exc),
             })
-            
-            outcome = {"resolved_contested": "won", "resolved_refunded": "lost", 
-                       "resolved_accepted_loss": "accepted_loss"}.get(case_resolution or "", "open")
-            
-            await metrics_service.on_dispute_resolved(
-                dispute_id=dispute_id,
-                outcome=outcome,
-                amount_paise=dispute_entity.amount or 0,
-            )
+        except Exception as inner_err:
+            logger.exception("Fatal failure recording error boundary for dispute %s: %s", dispute_id, inner_err)
 
 async def resume_dispute_and_broadcast(
     dispute_id: str,
@@ -407,39 +407,134 @@ async def reset_system_database():
     summary="Receive Razorpay payment.dispute.created webhook",
 )
 async def receive_dispute_webhook(
-    event: DisputeWebhookEvent,
-    background_tasks: BackgroundTasks,
     request: Request,
+    background_tasks: BackgroundTasks,
 ):
     """
-    Ingests a Razorpay dispute webhook, broadcasts a *dispute_received*
-    event to all connected dashboards, and starts the LangGraph pipeline
-    as a background task.
+    Ingests a Razorpay dispute webhook after validating HMAC-SHA256 signature,
+    broadcasts a *dispute_received* event to all connected dashboards, and
+    starts the LangGraph pipeline as a background task.
 
-    Returns **202 Accepted** immediately.  Real-time progress is pushed
+    Returns **202 Accepted** immediately. Real-time progress is pushed
     to clients connected to ``/ws/dashboard``.
     """
+    raw_body = await request.body()
+    signature = request.headers.get("X-Razorpay-Signature") or request.headers.get("x-razorpay-signature")
+    secret = settings.razorpay_webhook_secret
+
+    if not signature or not secret:
+        logger.warning("Rejecting webhook: missing signature header or webhook secret not set.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing X-Razorpay-Signature header or secret not configured",
+        )
+
+    expected_sig = hmac.new(
+        secret.encode("utf-8"),
+        raw_body,
+        hashlib.sha256,
+    ).hexdigest()
+
+    if not hmac.compare_digest(expected_sig, signature):
+        logger.warning("Rejecting webhook: HMAC-SHA256 signature mismatch.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid webhook signature",
+        )
+
+    try:
+        event = DisputeWebhookEvent.model_validate_json(raw_body)
+    except Exception as exc:
+        logger.warning("Malformed dispute webhook JSON payload: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Malformed webhook payload: {exc}",
+        )
+
     if event.event != "payment.dispute.created":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Unsupported event type: {event.event}",
         )
 
-    # Extract identifiers from the nested payload
-    dispute_id = event.payload.dispute.entity.id
-    order_id = event.payload.payment.entity.order_id
-    compiled_graph = _get_graph(request)
+    # Extract identifiers and entities from the nested payload
+    dispute_entity = event.payload.dispute.entity
+    payment_entity = event.payload.payment.entity
+    dispute_id = dispute_entity.id
+    order_id = payment_entity.order_id or "UNKNOWN_ORDER"
+    webhook_payload = event.model_dump(mode="json")
+    respond_by_dt = (
+        datetime.fromtimestamp(dispute_entity.respond_by, tz=timezone.utc)
+        if dispute_entity.respond_by
+        else None
+    )
 
-    logger.info("Received dispute webhook: %s for order: %s", dispute_id, order_id)
+    # 0. Idempotency Check & Synchronous Persistence (Single DB Session)
+    async with async_session_factory() as session:
+        repo = DisputeRepository(session)
+        existing_dispute = await repo.get_dispute(dispute_id)
+        if existing_dispute:
+            phase = (existing_dispute.phase or "").lower()
+            if phase in ("chargeback", "contested") or existing_dispute.document_id:
+                logger.info("Dispute already processed: %s", dispute_id)
+                return JSONResponse(
+                    status_code=status.HTTP_200_OK,
+                    content={
+                        "status": "already_processed",
+                        "dispute_id": dispute_id,
+                        "message": "Dispute already processed",
+                    },
+                )
 
-    # 1. Instantly notify every connected dashboard
+        compiled_graph = _get_graph(request)
+
+        metrics_repo = MetricsRepository(session)
+        await metrics_repo.record_event(
+            dispute_id=dispute_id,
+            event_type="webhook_received",
+            payload=webhook_payload,
+        )
+
+        await repo.create_or_update_dispute(
+            dispute_id=dispute_id,
+            webhook_payload=webhook_payload,
+            amount_paise=dispute_entity.amount,
+            amount_deducted=dispute_entity.amount_deducted,
+            respond_by=respond_by_dt,
+            reason_code=dispute_entity.reason_code,
+            customer_email=payment_entity.email,
+            payment_id=payment_entity.id,
+            order_id=order_id,
+            phase=dispute_entity.phase,
+            status="processing",
+        )
+
+    # 1. Trigger incremental daily metrics update in background
+    background_tasks.add_task(
+        metrics_service.on_dispute_ingested,
+        dispute_id=dispute_id,
+        webhook_payload=webhook_payload,
+        amount_paise=dispute_entity.amount,
+    )
+
+    # 3. Broadcast dispute_received with FULL core fields so frontend never shows 'Unknown'
+    now_iso = datetime.now(timezone.utc).isoformat()
     await manager.broadcast_system_event({
         "event": "dispute_received",
         "dispute_id": dispute_id,
         "order_id": order_id,
+        "payment_id": payment_entity.id,
+        "customer_email": payment_entity.email or "Customer",
+        "amount_paise": dispute_entity.amount,
+        "amount_deducted": dispute_entity.amount_deducted or 0,
+        "reason_code": dispute_entity.reason_code,
+        "phase": dispute_entity.phase,
+        "status": "processing",
+        "created_at": now_iso,
+        "updated_at": now_iso,
     })
 
-    # 2. Offload the heavy LangGraph pipeline to a background task
+    # 4. Offload the heavy LangGraph pipeline to a background task
     background_tasks.add_task(
         process_dispute_and_broadcast,
         event,
@@ -447,7 +542,7 @@ async def receive_dispute_webhook(
         compiled_graph,
     )
 
-    # 3. Return immediately
+    # 5. Return immediately
     return {
         "dispute_id": dispute_id,
         "status": "accepted",

@@ -1,8 +1,9 @@
 """
 Chaos-testing script: run_test_batch.py
 
-Blasts 100 mock dispute webhook JSONs at the /webhook endpoint concurrently.
+Blasts mock dispute webhook JSONs at the /webhook endpoint concurrently.
 Measures precision, recall, false-positive financial costs, and throughput.
+Includes HMAC-SHA256 signature verification matching Razorpay's production specification.
 
 Usage:
     python -m tests.run_test_batch --url http://localhost:8000/api/v1/webhook --count 100
@@ -12,7 +13,10 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
+import hmac
 import json
+import os
 import random
 import time
 from dataclasses import dataclass, field
@@ -21,16 +25,20 @@ from typing import Any
 import httpx
 
 
+# Webhook secret for signing test payloads
+WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "whsec_8kQ2vN9xZmR7pL4tY6bJ3cF1dK5wA0hE")
+
 # ── Dispute Archetypes for Mock Generation ──
 
-REASON_CODES = ["chargeback", "fraud", "product_not_received", "duplicate", "other"]
+REASON_CODES = ["chargeback", "fraud", "product_not_received", "processed_invalid_expired_card", "duplicate"]
 PHASES = ["chargeback", "pre_arbitration"]
 
-# Known order IDs from seed data (should produce valid evidence)
+# Known payment IDs
 KNOWN_ORDER_IDS = {
-    "pay_XYZ1001": {"amount": 52976, "expected_action": "human_review"},   # High amount, delivered
-    "pay_XYZ1002": {"amount": 15000, "expected_action": "human_review"},   # No shipping, has 2FA
-    "pay_XYZ1003": {"amount": 4500,  "expected_action": "human_review"},   # In transit, low amount
+    "pay_EFtmUsbwpXwBHI": {"amount": 52976, "expected_action": "human_review"},
+    "pay_XYZ1001": {"amount": 52976, "expected_action": "human_review"},
+    "pay_XYZ1002": {"amount": 15000, "expected_action": "human_review"},
+    "pay_XYZ1003": {"amount": 4500,  "expected_action": "human_review"},
 }
 
 # Unknown payment IDs (should produce "no evidence" → accept_loss)
@@ -83,32 +91,95 @@ class BatchReport:
 
 def generate_mock_dispute(index: int) -> tuple[dict, str]:
     """
-    Generate a mock dispute webhook payload.
+    Generate a mock dispute webhook payload matching Razorpay's real payload structure.
     Returns (payload_dict, expected_gate_action).
     """
-    # 60% known orders (should have evidence), 40% unknown (no evidence → accept_loss)
     if random.random() < 0.6:
         payment_id = random.choice(list(KNOWN_ORDER_IDS.keys()))
-        amount = KNOWN_ORDER_IDS[payment_id]["amount"]
+        amount_inr = KNOWN_ORDER_IDS[payment_id]["amount"]
         expected = KNOWN_ORDER_IDS[payment_id]["expected_action"]
     else:
         payment_id = random.choice(UNKNOWN_PAYMENT_IDS)
-        amount = random.randint(500, 50000)
+        amount_inr = random.randint(500, 50000)
         expected = "accept_loss"
 
+    amount_paise = amount_inr * 100
+    now_ts = int(time.time())
+
     payload = {
+        "entity": "event",
+        "account_id": "acc_CFvOKjkTwf3GQy",
         "event": "payment.dispute.created",
+        "contains": ["payment", "dispute"],
         "payload": {
-            "entity": {
-                "id": f"disp_TEST_{index:04d}",
-                "payment_id": payment_id,
-                "amount": amount,
-                "currency": "INR",
-                "reason_code": random.choice(REASON_CODES),
-                "phase": random.choice(PHASES),
-                "status": "open",
+            "payment": {
+                "entity": {
+                    "id": payment_id,
+                    "entity": "payment",
+                    "amount": amount_paise,
+                    "currency": "INR",
+                    "base_amount": amount_paise,
+                    "status": "captured",
+                    "order_id": f"order_{payment_id.replace('pay_', '')}",
+                    "invoice_id": None,
+                    "international": False,
+                    "method": "card",
+                    "amount_refunded": 0,
+                    "amount_transferred": 0,
+                    "refund_status": None,
+                    "captured": True,
+                    "description": None,
+                    "card_id": "card_EADblPSDnnk5ZG",
+                    "bank": "HDFC",
+                    "wallet": None,
+                    "vpa": None,
+                    "email": "gaurav.kumar@example.com",
+                    "contact": "+919900000000",
+                    "notes": [],
+                    "fee": 0,
+                    "tax": 0,
+                    "error_code": None,
+                    "error_description": None,
+                    "error_source": None,
+                    "error_step": None,
+                    "error_reason": None,
+                    "acquirer_data": {},
+                    "created_at": now_ts - 86400 * 2,
+                }
+            },
+            "dispute": {
+                "entity": {
+                    "id": f"disp_TEST_{index:04d}",
+                    "entity": "dispute",
+                    "payment_id": payment_id,
+                    "amount": amount_paise,
+                    "currency": "INR",
+                    "amount_deducted": 0,
+                    "reason_code": random.choice(REASON_CODES),
+                    "respond_by": now_ts + 86400 * 5,
+                    "status": "open",
+                    "evidence": {
+                        "amount": amount_paise,
+                        "summary": None,
+                        "shipping_proof": None,
+                        "billing_proof": None,
+                        "cancellation_proof": None,
+                        "customer_communication": None,
+                        "proof_of_service": None,
+                        "explanation_letter": None,
+                        "refund_confirmation": None,
+                        "access_activity_log": None,
+                        "refund_cancellation_policy": None,
+                        "term_and_conditions": None,
+                        "others": None,
+                        "submitted_at": None,
+                    },
+                    "phase": random.choice(PHASES),
+                    "created_at": now_ts,
+                }
             }
         },
+        "created_at": now_ts
     }
 
     return payload, expected
@@ -120,17 +191,27 @@ async def send_dispute(
     payload: dict,
     expected_action: str,
     dispute_id: str,
+    secret: str = WEBHOOK_SECRET,
 ) -> TestResult:
-    """Send a single dispute webhook and record the result."""
+    """Send a single dispute webhook with HMAC-SHA256 signature and record the result."""
+    payment_id = payload["payload"]["payment"]["entity"]["id"]
     result = TestResult(
         dispute_id=dispute_id,
-        payment_id=payload["payload"]["entity"]["payment_id"],
+        payment_id=payment_id,
         expected_action=expected_action,
     )
 
+    raw_body = json.dumps(payload).encode("utf-8")
+    sig = hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
+
+    headers = {
+        "Content-Type": "application/json",
+        "X-Razorpay-Signature": sig,
+    }
+
     start = time.perf_counter()
     try:
-        response = await client.post(url, json=payload, timeout=30.0)
+        response = await client.post(url, content=raw_body, headers=headers, timeout=30.0)
         result.latency_ms = (time.perf_counter() - start) * 1000
 
         if response.status_code in (200, 202):
@@ -155,7 +236,7 @@ async def run_batch(url: str, count: int, concurrency: int = 20) -> BatchReport:
     tasks_data = []
     for i in range(count):
         payload, expected = generate_mock_dispute(i)
-        dispute_id = payload["payload"]["entity"]["id"]
+        dispute_id = payload["payload"]["dispute"]["entity"]["id"]
         tasks_data.append((payload, expected, dispute_id))
 
     # Execute with bounded concurrency

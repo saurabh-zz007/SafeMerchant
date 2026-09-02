@@ -174,7 +174,8 @@ class EvidenceWorkerPool:
                     async with async_session_factory() as session:
                         repo = DisputeRepository(session)
                         await repo.update_job_status(job_id, "contest_expected_failure", error_message=err_msg)
-                        await repo.update_status(dispute_id, "under_review")
+                        await repo.update_status(dispute_id, "resolved", case_resolution="resolved_contested")
+                        await session.commit()
 
                     await manager.broadcast_system_event({
                         "event": "contest_sandbox_limitation",
@@ -188,7 +189,8 @@ class EvidenceWorkerPool:
                     async with async_session_factory() as session:
                         repo = DisputeRepository(session)
                         await repo.update_job_status(job_id, "completed")
-                        await repo.update_status(dispute_id, "under_review")
+                        await repo.update_status(dispute_id, "under_review", case_resolution="resolved_contested")
+                        await session.commit()
 
                     await manager.broadcast_system_event({
                         "event": "evidence_completed",
@@ -199,22 +201,26 @@ class EvidenceWorkerPool:
 
             except Exception as exc:
                 logger.exception("EvidenceJob #%d failed for dispute %s: %s", job_id, dispute_id, exc)
-                async with async_session_factory() as session:
-                    repo = DisputeRepository(session)
-                    await repo.update_job_status(job_id, "failed", error_message=str(exc))
-                    await repo.update_status(dispute_id, "error")
-                    await repo.append_history(dispute_id, {
+                try:
+                    async with async_session_factory() as session:
+                        repo = DisputeRepository(session)
+                        await repo.update_job_status(job_id, "failed", error_message=str(exc))
+                        await repo.update_status(dispute_id, "error")
+                        await repo.append_history(dispute_id, {
+                            "event": "evidence_job_failed",
+                            "job_id": job_id,
+                            "error": str(exc),
+                        })
+                        await session.commit()
+
+                    await manager.broadcast_system_event({
                         "event": "evidence_job_failed",
+                        "dispute_id": dispute_id,
                         "job_id": job_id,
                         "error": str(exc),
                     })
-
-                await manager.broadcast_system_event({
-                    "event": "evidence_job_failed",
-                    "dispute_id": dispute_id,
-                    "job_id": job_id,
-                    "error": str(exc),
-                })
+                except Exception as inner_exc:
+                    logger.exception("Critical failure updating error state for job #%d: %s", job_id, inner_exc)
 
 
 # Global singleton instance

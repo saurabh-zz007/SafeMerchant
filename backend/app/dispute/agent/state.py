@@ -71,6 +71,8 @@ class DisputeAgentState(TypedDict, total=False):
     order_id: str                    # Merchant order ID (e.g., "ORD_1001")
     reason_code: str                 # Dispute reason: "chargeback" | "fraud" | "product_not_received" | ...
     disputed_amount_inr: int         # Amount in paisa or INR (matches orders.amount_inr)
+    amount_deducted: Optional[int]   # Amount deducted in paise by Razorpay
+    respond_by: Optional[int]        # Unix timestamp dispute response deadline
     dispute_phase: str               # "chargeback" | "pre_arbitration" | "arbitration"
     customer_email: str              # Customer who raised the dispute
     dispute_created_at: Optional[int]  # Unix timestamp of dispute creation (from webhook)

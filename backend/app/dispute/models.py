@@ -204,6 +204,14 @@ class Dispute(Base):
         Integer, nullable=True,
         comment="Disputed amount in paise (integer, not float)",
     )
+    amount_deducted: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True, server_default="0",
+        comment="Amount deducted in paise (from Razorpay dispute entity)",
+    )
+    respond_by: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+        comment="Dispute response deadline (from Razorpay respond_by timestamp)",
+    )
     reason_code: Mapped[Optional[str]] = mapped_column(
         String(50), nullable=True,
         comment="Dispute reason: chargeback | fraud | item_not_received | etc.",

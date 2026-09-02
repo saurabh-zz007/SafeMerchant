@@ -32,7 +32,7 @@ class Settings(BaseSettings):
         description="Model name on OpenRouter (e.g., openai/gpt-4o, google/gemini-pro)",
     )
 
-    # ── Razorpay API (for Refunds) ──
+    # ── Razorpay API (for Refunds & Webhooks) ──
     razorpay_key_id: str = Field(
         default="",
         description="Razorpay API Key ID for refund operations",
@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     razorpay_key_secret: str = Field(
         default="",
         description="Razorpay API Key Secret for refund operations",
+    )
+    razorpay_webhook_secret: str = Field(
+        default="whsec_8kQ2vN9xZmR7pL4tY6bJ3cF1dK5wA0hE",
+        description="Razorpay Webhook Secret for HMAC-SHA256 signature verification",
     )
 
     # ── Agent Gate Thresholds (Defense-Only) ──

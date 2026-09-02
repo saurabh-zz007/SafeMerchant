@@ -36,6 +36,7 @@ async def test_worker_claim_and_process_success(
     mock_repo = MagicMock()
     mock_repo.fetch_next_queued_job = AsyncMock(return_value=mock_job)
     mock_repo.update_job_status = AsyncMock()
+    mock_repo.update_status = AsyncMock()
     mock_repo.append_history = AsyncMock()
     mock_dispute_repo_class.return_value = mock_repo
 
@@ -74,6 +75,8 @@ async def test_worker_process_sandbox_limitation(
 
     mock_repo = MagicMock()
     mock_repo.update_job_status = AsyncMock()
+    mock_repo.update_status = AsyncMock()
+    mock_repo.append_history = AsyncMock()
     mock_dispute_repo_class.return_value = mock_repo
 
     mock_submit_evidence.return_value = {
@@ -118,6 +121,8 @@ async def test_worker_process_failure_handling(
 
     mock_repo = MagicMock()
     mock_repo.update_job_status = AsyncMock()
+    mock_repo.update_status = AsyncMock()
+    mock_repo.append_history = AsyncMock()
     mock_dispute_repo_class.return_value = mock_repo
 
     mock_submit_evidence.side_effect = Exception("Storage upload network timeout")

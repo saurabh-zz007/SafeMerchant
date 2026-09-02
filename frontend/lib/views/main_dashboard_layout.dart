@@ -681,9 +681,13 @@ class _DisputeDetailsDialogState extends State<_DisputeDetailsDialog> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.stretch,
                                       children: [
-                                        _DetailRow(label: 'Customer Email', value: customerEmail ?? 'Unknown'),
+                                        _DetailRow(label: 'Customer Email', value: (customerEmail != null && customerEmail != 'Unknown') ? customerEmail : (isRunning ? 'Processing...' : 'Customer')),
                                         const Divider(height: 16),
                                         _DetailRow(label: 'Disputed Amount', value: amountStr),
+                                        const Divider(height: 16),
+                                        _DetailRow(label: 'Amount Deducted', value: _money(dispute.amountDeducted, dispute.currency)),
+                                        const Divider(height: 16),
+                                        _DetailRow(label: 'Respond By (Deadline)', value: dispute.respondBy != null ? _dateTimeLabel(dispute.respondBy!) : 'N/A'),
                                         const Divider(height: 16),
                                         _DetailRow(label: 'Order ID', value: orderId),
                                         const Divider(height: 16),
@@ -1932,7 +1936,7 @@ class DisputesScreen extends StatelessWidget {
                           },
                           cells: [
                             DataCell(Text(dispute.id)),
-                            DataCell(Text(dispute.customerName ?? 'Unknown')),
+                            DataCell(Text((dispute.customerName != null && dispute.customerName != 'Unknown') ? dispute.customerName! : (dispute.status == DisputeStatus.processing ? 'Processing...' : 'Customer'))),
                             DataCell(
                                 Text(_money(dispute.amount, dispute.currency))),
                             DataCell(_StatusPill(dispute: dispute)),

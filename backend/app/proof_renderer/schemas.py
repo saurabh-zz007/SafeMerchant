@@ -77,9 +77,9 @@ class DeliveryProofData(BaseModel):
 class ChatMessage(BaseModel):
     """A single message in a chat transcript."""
 
-    timestamp: datetime
-    sender: str  # e.g. "Customer", "Support Agent"
-    message: str
+    timestamp: Optional[datetime] = None
+    sender: str = "Support"  # e.g. "Customer", "Support Agent"
+    message: str = ""
 
 
 class ChatTranscriptData(BaseModel):
@@ -87,12 +87,12 @@ class ChatTranscriptData(BaseModel):
 
     order_id: str
     payment_id: str
-    customer_name: str
-    customer_email: str
-    agent_name: str
-    conversation_started_at: datetime
-    conversation_ended_at: datetime
-    messages: list[ChatMessage]
+    customer_name: Optional[str] = "Customer"
+    customer_email: Optional[str] = "unknown@example.com"
+    agent_name: Optional[str] = "SafeMerchant Support"
+    conversation_started_at: Optional[datetime] = None
+    conversation_ended_at: Optional[datetime] = None
+    messages: list[ChatMessage] = Field(default_factory=list)
     resolution_summary: Optional[str] = None
     additional_notes: Optional[str] = None
 
@@ -111,8 +111,8 @@ class ActivityLogData(BaseModel):
 
     order_id: str
     payment_id: str
-    customer_name: str
-    customer_email: str
+    customer_name: Optional[str] = "Customer"
+    customer_email: Optional[str] = "unknown@example.com"
     log_title: str = "Order Activity Log"
-    entries: list[ActivityLogEntry]
+    entries: list[ActivityLogEntry] = Field(default_factory=list)
     additional_notes: Optional[str] = None

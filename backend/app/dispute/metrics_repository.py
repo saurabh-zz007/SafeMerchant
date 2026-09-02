@@ -223,15 +223,8 @@ class MetricsRepository:
     # ══════════════════════════════════════════════════════════════
 
     async def refresh_breakdowns(self) -> None:
-        """Recompute ``dispute_breakdowns`` from the ``disputes`` table.
-
-        Performs DELETE + INSERT in a single transaction to avoid
-        stale partial data.
-        """
+        """Recompute ``dispute_breakdowns`` from the ``disputes`` table using PostgreSQL Upsert."""
         now = datetime.now(timezone.utc)
-
-        # Clear existing
-        await self._session.execute(delete(DisputeBreakdown))
 
         # Dimensions to aggregate
         dimensions = {
@@ -252,13 +245,25 @@ class MetricsRepository:
             result = await self._session.execute(stmt)
 
             for row in result.all():
-                self._session.add(DisputeBreakdown(
-                    dimension=dim_name,
-                    dimension_value=row.dim_value,
-                    count=row.cnt,
-                    amount_paise=row.amt,
-                    refreshed_at=now,
-                ))
+                upsert_stmt = (
+                    pg_insert(DisputeBreakdown)
+                    .values(
+                        dimension=dim_name,
+                        dimension_value=str(row.dim_value),
+                        count=row.cnt,
+                        amount_paise=row.amt,
+                        refreshed_at=now,
+                    )
+                    .on_conflict_do_update(
+                        index_elements=["dimension", "dimension_value"],
+                        set_={
+                            "count": row.cnt,
+                            "amount_paise": row.amt,
+                            "refreshed_at": now,
+                        },
+                    )
+                )
+                await self._session.execute(upsert_stmt)
 
         await self._session.commit()
         logger.info("Refreshed dispute breakdowns")

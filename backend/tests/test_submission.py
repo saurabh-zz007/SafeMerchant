@@ -300,3 +300,58 @@ async def test_submit_dispute_evidence_timeout_retry(
     # Assert outcomes: should succeed because it retried and the second post succeeded
     assert result["outcome"] == "success"
     assert mock_client.post.call_count == 3
+
+
+@patch("app.dispute.submission.settings")
+@patch("app.dispute.submission.async_session_factory")
+@patch("app.dispute.submission.DisputeRepository")
+@patch("app.dispute.submission.EvidenceRepository")
+@patch("app.dispute.submission.ChargebackPDFRenderer")
+@patch("httpx.AsyncClient")
+async def test_submit_dispute_evidence_razorpay_404_no_route_matched(
+    mock_client_class,
+    mock_pdf_renderer_class,
+    mock_evidence_repo_class,
+    mock_dispute_repo_class,
+    mock_session_factory,
+    mock_settings,
+    mock_dispute,
+    mock_session,
+    mock_dispute_repo,
+    mock_evidence_repo,
+):
+    """Verify that Razorpay 404 {'message': 'no Route matched with those values'} is handled gracefully as simulated sandbox limitation."""
+    mock_settings.razorpay_key_id = "test_key"
+    mock_settings.razorpay_key_secret = "test_secret"
+    mock_session_factory.return_value.__aenter__.return_value = mock_session
+    mock_dispute_repo_class.return_value = mock_dispute_repo
+    mock_evidence_repo_class.return_value = mock_evidence_repo
+
+    mock_pdf = MagicMock()
+    mock_pdf.getvalue.return_value = b"%PDF-mock-bytes"
+    mock_pdf_renderer_class.return_value.render.return_value = mock_pdf
+
+    mock_client = AsyncMock()
+    mock_client_class.return_value.__aenter__.return_value = mock_client
+
+    # Document upload 201
+    mock_doc_response = MagicMock()
+    mock_doc_response.status_code = 201
+    mock_doc_response.json.return_value = {"id": "doc_test123"}
+
+    # Contest dispute 404 No Route Matched
+    mock_contest_response = MagicMock()
+    mock_contest_response.status_code = 404
+    mock_contest_response.json.return_value = {"message": "no Route matched with those values"}
+
+    mock_client.post = AsyncMock(side_effect=[mock_doc_response, mock_contest_response])
+
+    result = await submit_dispute_evidence("disp_2003")
+
+    assert result["outcome"] == "contest_expected_failure"
+    assert result["document_id"] == "doc_test123"
+    # History entry appended for sandbox limitation
+    mock_dispute_repo.append_history.assert_called()
+    last_call_args = mock_dispute_repo.append_history.call_args[0]
+    assert last_call_args[1]["event"] == "contest_submitted_sandbox_limitation"
+

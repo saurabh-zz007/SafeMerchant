@@ -11,8 +11,19 @@ Assembles the app with:
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import platform
 from contextlib import asynccontextmanager
+
+if platform.system() == "Windows":
+    import selectors
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    try:
+        import uvicorn.loops.asyncio
+        uvicorn.loops.asyncio.asyncio_loop_factory = lambda use_subprocess=False: lambda: asyncio.SelectorEventLoop(selectors.SelectSelector())
+    except Exception:
+        pass
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

@@ -1,23 +1,94 @@
--- Orders Seed
+-- ==============================================================================
+-- SafeMerchant — Gate-Decision Coverage Test Data
+-- Each order below is designed to route through a specific gate_decision path:
+-- ORD_2001 -> auto_refund | ORD_2002 -> refund_review
+-- ORD_2003 -> auto_submit | ORD_2004 -> human_review | ORD_2005 -> accept_loss
+-- ==============================================================================
+
+-- 1. Orders
 INSERT INTO orders (order_id, payment_id, customer_email, amount_inr, item_description, created_at)
-VALUES 
-    ('ORD_1001', 'pay_XYZ1001', 'scammer1@gmail.com', 52976, 'Sony WH-1000XM5 Headphones', '2026-08-10T14:00:00Z'),
-    ('ORD_1002', 'pay_XYZ1002', 'hacked_account@yahoo.com', 15000, 'Annual Software Subscription', '2026-08-15T09:30:00Z'),
-    ('ORD_1003', 'pay_XYZ1003', 'angry_buyer@outlook.com', 4500, 'Cotton T-Shirt - Blue', '2026-08-18T11:15:00Z');
+VALUES
+    -- ORD_2001: Genuinely legitimate claim, low value -> should AUTO_REFUND
+    ('ORD_2001', 'pay_XYZ2001', 'priya.sharma@gmail.com', 2999, 'Bluetooth Earbuds Pro', '2026-08-05T10:00:00Z'),
 
--- Shipping Logs Seed
+    -- ORD_2002: Genuinely legitimate claim, high value -> should trigger REFUND_REVIEW (HITL)
+    ('ORD_2002', 'pay_XYZ2002', 'rahul.mehta@gmail.com', 24999, 'Apple iPad 9th Gen 64GB', '2026-08-07T13:20:00Z'),
+
+    -- ORD_2003: Strong winnable evidence, low value -> should AUTO_SUBMIT (contest)
+    ('ORD_2003', 'pay_XYZ2003', 'friendly_fraud1@outlook.com', 3499, 'Nike Running Shoes - Size 9', '2026-08-11T09:45:00Z'),
+
+    -- ORD_2004: Ambiguous/moderate evidence, high value -> should route to HUMAN_REVIEW
+    ('ORD_2004', 'pay_XYZ2004', 'ambiguous_case@yahoo.com', 18500, 'Samsung 27" Monitor', '2026-08-13T16:10:00Z'),
+
+    -- ORD_2005: Weak/no evidence, no legitimacy -> should ACCEPT_LOSS
+    ('ORD_2005', 'pay_XYZ2005', 'ghost_buyer@protonmail.com', 1299, 'Phone Case - Clear', '2026-08-16T11:00:00Z')
+ON CONFLICT (order_id) DO UPDATE SET
+    payment_id = EXCLUDED.payment_id,
+    customer_email = EXCLUDED.customer_email,
+    amount_inr = EXCLUDED.amount_inr,
+    item_description = EXCLUDED.item_description,
+    created_at = EXCLUDED.created_at;
+
+
+-- 2. Shipping Logs
 INSERT INTO shipping_logs (tracking_id, order_id, courier_partner, delivery_status, signed_by, delivery_timestamp)
-VALUES 
-    ('TRK_DEL_999', 'ORD_1001', 'Delhivery', 'Delivered', 'Self (OTP Verified)', '2026-08-13T16:45:00Z'),
-    ('TRK_BDP_888', 'ORD_1003', 'BlueDart', 'In_Transit', NULL, NULL);
+VALUES
+    -- ORD_2001: Genuinely lost in transit — no delivery, no signature. Supports legitimacy.
+    ('TRK_2001', 'ORD_2001', 'Delhivery', 'Lost_In_Transit', NULL, NULL),
 
--- Customer Communications Seed
+    -- ORD_2002: Same pattern — item never arrived, courier confirms loss. Supports legitimacy at high value.
+    ('TRK_2002', 'ORD_2002', 'BlueDart', 'Lost_In_Transit', NULL, NULL),
+
+    -- ORD_2003: Delivered with OTP verification — strong proof against the claim
+    ('TRK_2003', 'ORD_2003', 'Delhivery', 'Delivered', 'Self (OTP Verified)', '2026-08-14T15:30:00Z'),
+
+    -- ORD_2004: Delivered, but only "Left at door" — no signature captured, weaker but not absent proof
+    ('TRK_2004', 'ORD_2004', 'Ekart', 'Delivered', 'Left at Door (No Signature)', '2026-08-16T12:15:00Z'),
+
+    -- ORD_2005: Delivered with OTP, but customer disputes anyway with no counter-evidence of their own
+    ('TRK_2005', 'ORD_2005', 'Delhivery', 'Delivered', 'Self (OTP Verified)', '2026-08-18T10:20:00Z')
+ON CONFLICT (tracking_id) DO UPDATE SET
+    order_id = EXCLUDED.order_id,
+    courier_partner = EXCLUDED.courier_partner,
+    delivery_status = EXCLUDED.delivery_status,
+    signed_by = EXCLUDED.signed_by,
+    delivery_timestamp = EXCLUDED.delivery_timestamp;
+
+
+-- 3. Customer Communications
 INSERT INTO customer_communications (ticket_id, order_id, channel, message_transcript, logged_at)
-VALUES 
-    ('TCK_551', 'ORD_1001', 'Email', 'Customer: How do I pair these headphones to my Mac? Support: Press the power button for 5 seconds.', '2026-08-14T10:00:00Z'),
-    ('TCK_552', 'ORD_1003', 'WhatsApp', 'Customer: I wore the shirt but I dont like the color anymore. Can I return it? Support: Sorry, worn items cannot be returned.', '2026-08-19T12:00:00Z');
+VALUES
+    -- ORD_2001: Customer proactively reported non-delivery before disputing — supports legitimacy
+    ('TCK_2001', 'ORD_2001', 'Email', 'Customer: My tracking has shown no movement for 6 days, I dont think this is coming. Support: We are escalating with the courier, apologies for the delay.', '2026-08-08T09:00:00Z'),
 
--- Risk Signals Seed
+    -- ORD_2002: Same pattern, high-value item, customer reported before filing dispute
+    ('TCK_2002', 'ORD_2002', 'WhatsApp', 'Customer: The courier tracking says out for delivery for 3 days straight with no update, can you check? Support: Checking with the logistics partner now.', '2026-08-10T14:30:00Z'),
+
+    -- ORD_2003: Customer confirms receipt in writing, then disputes anyway — classic friendly fraud, strong contest case
+    ('TCK_2003', 'ORD_2003', 'Email', 'Customer: Got the shoes today, fit perfectly, thanks! Support: Glad to hear it, enjoy your new pair!', '2026-08-14T17:00:00Z'),
+
+    -- ORD_2004: No communications on file — ambiguous, nothing to strongly support either side
+    -- (intentionally no row inserted for this order)
+
+    -- ORD_2005: Customer contacted support with a vague, inconsistent complaint — weak/no real substance
+    ('TCK_2005', 'ORD_2005', 'WhatsApp', 'Customer: this doesnt look right. Support: Could you clarify what issue you are facing with the order? Customer: [no response]', '2026-08-19T08:15:00Z')
+ON CONFLICT (ticket_id) DO UPDATE SET
+    order_id = EXCLUDED.order_id,
+    channel = EXCLUDED.channel,
+    message_transcript = EXCLUDED.message_transcript,
+    logged_at = EXCLUDED.logged_at;
+
+
+-- 4. Risk Signals (fixed — shortened device_fingerprint values)
 INSERT INTO risk_signals (order_id, ip_address, device_fingerprint, is_2fa_verified, account_age_days)
-VALUES 
-    ('ORD_1002', '49.36.2.11 (Mumbai)', 'iPhone 14 Pro - Safari', TRUE, 450);
+VALUES
+    ('ORD_2001', '106.51.20.44 (Pune, MH)', 'Windows Chrome 128.0.0.0', TRUE, 310),
+    ('ORD_2002', '117.201.4.12 (Mumbai, MH)', 'iPhone Safari 17.5', TRUE, 890),
+    ('ORD_2003', '203.192.11.7 (Chennai, TN)', 'Mac Chrome 128.0.0.0', TRUE, 60),
+    ('ORD_2004', '45.115.87.33 (Unknown Region)', 'Android Chrome 91.0.4472', FALSE, 4),
+    ('ORD_2005', '89.187.162.5 (Unknown Region)', 'Android Chrome 89.0.4389', FALSE, 1)
+ON CONFLICT (order_id) DO UPDATE SET
+    ip_address = EXCLUDED.ip_address,
+    device_fingerprint = EXCLUDED.device_fingerprint,
+    is_2fa_verified = EXCLUDED.is_2fa_verified,
+    account_age_days = EXCLUDED.account_age_days;

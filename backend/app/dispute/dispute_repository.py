@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from sqlalchemy import select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dispute.models import Dispute, DisputeAuditLog, EvidenceJob
@@ -40,37 +41,44 @@ class DisputeRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    # ── Create ──
+    # ── Create / Upsert ──
 
-    async def create_dispute(
+    async def create_or_update_dispute(
         self,
         dispute_id: str,
         webhook_payload: dict[str, Any],
         *,
         amount_paise: Optional[int] = None,
+        amount_deducted: Optional[int] = None,
+        respond_by: Optional[datetime] = None,
         reason_code: Optional[str] = None,
         customer_email: Optional[str] = None,
         payment_id: Optional[str] = None,
         order_id: Optional[str] = None,
         phase: Optional[str] = None,
+        status: str = "processing",
     ) -> Dispute:
         """
-        Insert a new dispute record with status ``processing``.
+        Atomically insert a new dispute record or update an existing one on conflict.
 
-        The raw webhook payload is stored as the first entry in ``history``.
-        Uses merge for idempotent re-entrant calls.
+        The raw webhook payload is stored in the ``history`` JSONB array.
+        Uses PostgreSQL ON CONFLICT DO UPDATE to guarantee idempotency and avoid
+        race conditions under concurrent load.
         """
+        now = datetime.now(timezone.utc)
         history_entry = {
             "event": "webhook_received",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": now.isoformat(),
             "data": webhook_payload,
         }
 
-        dispute = Dispute(
+        stmt = pg_insert(Dispute).values(
             id=dispute_id,
-            status="processing",
+            status=status,
             history=[history_entry],
             amount_paise=amount_paise,
+            amount_deducted=amount_deducted or 0,
+            respond_by=respond_by,
             reason_code=reason_code,
             customer_email=customer_email,
             payment_id=payment_id,
@@ -78,16 +86,37 @@ class DisputeRepository:
             phase=phase or "chargeback",
             outcome="open",
             updated_by="system",
-            webhook_received_at=datetime.now(timezone.utc),
+            webhook_received_at=now,
+            created_at=now,
+            updated_at=now,
         )
 
-        # Merge handles re-entrant calls (idempotent)
-        dispute = await self._session.merge(dispute)
-        await self._session.commit()
-        await self._session.refresh(dispute)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[Dispute.id],
+            set_={
+                "amount_paise": stmt.excluded.amount_paise,
+                "amount_deducted": stmt.excluded.amount_deducted,
+                "respond_by": stmt.excluded.respond_by,
+                "reason_code": stmt.excluded.reason_code,
+                "customer_email": stmt.excluded.customer_email,
+                "payment_id": stmt.excluded.payment_id,
+                "order_id": stmt.excluded.order_id,
+                "phase": stmt.excluded.phase,
+                "updated_at": now,
+                "updated_by": "system",
+                "history": Dispute.history.concat(stmt.excluded.history),
+            },
+        ).returning(Dispute)
 
-        logger.info("Created dispute record: %s", dispute_id)
+        result = await self._session.execute(stmt)
+        dispute = result.scalar_one()
+        await self._session.commit()
+
+        logger.info("Upserted dispute record: %s (status=%s)", dispute_id, dispute.status)
         return dispute
+
+    # Backward-compatible alias
+    create_dispute = create_or_update_dispute
 
     # ── Read ──
 

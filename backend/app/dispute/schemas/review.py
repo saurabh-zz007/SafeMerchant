@@ -45,6 +45,8 @@ class DisputeListItem(BaseModel):
     history: list[dict[str, Any]] = Field(default_factory=list)
 
     amount_paise: Optional[int] = None
+    amount_deducted: Optional[int] = None
+    respond_by: Optional[datetime] = None
     reason_code: Optional[str] = None
     customer_email: Optional[str] = None
     payment_id: Optional[str] = None

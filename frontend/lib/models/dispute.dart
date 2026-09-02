@@ -28,6 +28,8 @@ class Dispute {
     this.requiresHumanReview = false,
     this.details = const {},
     this.createdAt,
+    this.respondBy,
+    this.amountDeducted,
     this.documentId,
     this.storagePath,
     this.evidenceJobId,
@@ -46,6 +48,8 @@ class Dispute {
   final bool requiresHumanReview;
   final Map<String, dynamic> details;
   final DateTime? createdAt;
+  final DateTime? respondBy;
+  final double? amountDeducted;
   final String? documentId;
   final String? storagePath;
   final int? evidenceJobId;
@@ -94,6 +98,17 @@ class Dispute {
 
     final rawAmount = json['amount_paise'] ?? paymentEntity?['amount'];
     final amountFromPaise = rawAmount is num ? rawAmount / 100 : null;
+    final rawAmountDeducted = json['amount_deducted'] ?? disputeEntity?['amount_deducted'];
+    final amountDeductedFromPaise = rawAmountDeducted is num ? rawAmountDeducted / 100 : null;
+
+    DateTime? respondBy;
+    final rawRespondBy = json['respond_by'] ?? disputeEntity?['respond_by'];
+    if (rawRespondBy is int) {
+      respondBy = DateTime.fromMillisecondsSinceEpoch(rawRespondBy * 1000, isUtc: true).toLocal();
+    } else if (rawRespondBy != null) {
+      respondBy = DateTime.tryParse(rawRespondBy.toString())?.toLocal();
+    }
+
     final statusText = _readString(json, const ['status', 'outcome', 'state'])?.toLowerCase();
     final node = _readString(json, const ['current_node', 'node']);
     final reason =
@@ -190,12 +205,15 @@ class Dispute {
       currency: json['currency']?.toString() ??
           paymentEntity?['currency']?.toString() ??
           'INR',
-      customerName: email ?? 'Unknown',
-      reason: reason ?? 'Unknown',
-      currentNode: node ?? _readString(json, const ['phase']),
+      customerName: email ?? (computedStatus == DisputeStatus.processing ? 'Processing...' : 'Customer'),
+      reason: reason ?? (computedStatus == DisputeStatus.processing ? 'Processing...' : 'Dispute'),
+      currentNode: node ?? _readString(json, const ['phase', 'workflow']) ?? (computedStatus == DisputeStatus.processing ? 'processing' : null),
       requiresHumanReview: requiresReview,
       details: details,
       createdAt: _readDate(json, const ['created_at', 'received_at']),
+      respondBy: respondBy,
+      amountDeducted: _readDouble(json, const ['amount_deducted']) ??
+          amountDeductedFromPaise?.toDouble(),
       documentId: documentId,
       storagePath: storagePath,
       evidenceJobId: evidenceJobId,
@@ -214,6 +232,8 @@ class Dispute {
     bool? requiresHumanReview,
     Map<String, dynamic>? details,
     DateTime? createdAt,
+    DateTime? respondBy,
+    double? amountDeducted,
     String? documentId,
     String? storagePath,
     int? evidenceJobId,
@@ -232,6 +252,8 @@ class Dispute {
       requiresHumanReview: requiresHumanReview ?? this.requiresHumanReview,
       details: details ?? this.details,
       createdAt: createdAt ?? this.createdAt,
+      respondBy: respondBy ?? this.respondBy,
+      amountDeducted: amountDeducted ?? this.amountDeducted,
       documentId: documentId ?? this.documentId,
       storagePath: storagePath ?? this.storagePath,
       evidenceJobId: evidenceJobId ?? this.evidenceJobId,
@@ -244,16 +266,22 @@ class Dispute {
     final merged = {...details, ...update};
     final next = Dispute.fromJson(merged);
     return copyWith(
-      status: next.status == DisputeStatus.unknown ? status : next.status,
+      status: (next.status == DisputeStatus.unknown) ? status : next.status,
       updatedAt: next.updatedAt,
-      amount: next.amount,
-      currency: next.currency,
-      customerName: next.customerName,
-      reason: next.reason,
-      currentNode: next.currentNode,
+      amount: next.amount ?? amount,
+      currency: next.currency ?? currency,
+      customerName: (next.customerName == null || next.customerName == 'Processing...' || next.customerName == 'Customer')
+          ? (customerName ?? next.customerName)
+          : next.customerName,
+      reason: (next.reason == null || next.reason == 'Processing...' || next.reason == 'Dispute')
+          ? (reason ?? next.reason)
+          : next.reason,
+      currentNode: next.currentNode ?? currentNode,
       requiresHumanReview: next.requiresHumanReview,
       details: merged,
-      createdAt: next.createdAt,
+      createdAt: next.createdAt ?? createdAt,
+      respondBy: next.respondBy ?? respondBy,
+      amountDeducted: next.amountDeducted ?? amountDeducted,
       documentId: next.documentId ?? documentId,
       storagePath: next.storagePath ?? storagePath,
       evidenceJobId: next.evidenceJobId ?? evidenceJobId,
@@ -299,8 +327,8 @@ class Dispute {
     if (normalized.contains('evidence_submitted')) {
       return DisputeStatus.evidenceSubmitted;
     }
-    if (normalized.isEmpty) {
-      return DisputeStatus.unknown;
+    if (normalized.isEmpty || normalized == 'unknown' || normalized == 'received' || normalized == 'processing') {
+      return DisputeStatus.processing;
     }
     return DisputeStatus.processing;
   }

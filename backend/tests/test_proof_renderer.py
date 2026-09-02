@@ -217,9 +217,25 @@ class TestErrorHandling:
 class TestExtensibility:
     def test_available_templates(self, renderer: ChargebackPDFRenderer):
         templates = renderer.available_templates
+        assert "shipping_proof" in templates
+        assert "customer_communication" in templates
+        assert "access_activity_log" in templates
         assert "delivery_proof" in templates
         assert "chat_transcript" in templates
         assert "activity_log" in templates
+
+    def test_razorpay_evidence_names_render(self, renderer: ChargebackPDFRenderer):
+        res1 = renderer.render("shipping_proof", _delivery_dict())
+        assert isinstance(res1, BytesIO)
+        assert res1.read(5) == b"%PDF-"
+
+        res2 = renderer.render("customer_communication", _chat_dict())
+        assert isinstance(res2, BytesIO)
+        assert res2.read(5) == b"%PDF-"
+
+        res3 = renderer.render("access_activity_log", _activity_dict())
+        assert isinstance(res3, BytesIO)
+        assert res3.read(5) == b"%PDF-"
 
     def test_register_custom_template(self, renderer: ChargebackPDFRenderer):
         from pydantic import BaseModel as PydanticBaseModel
@@ -239,3 +255,15 @@ class TestExtensibility:
         result = renderer.render("dummy", {"title": "Hello World"})
         assert isinstance(result, BytesIO)
         assert result.read(5) == b"%PDF-"
+
+    def test_chat_transcript_with_minimal_order_details_does_not_crash(self, renderer: ChargebackPDFRenderer):
+        """Verify that when only order details exist (no agent/messages), PDF renders successfully without validation crash."""
+        minimal_data = {
+            "order_id": "ORD_2005",
+            "payment_id": "pay_2005",
+            "customer_name": "Test Customer",
+            "customer_email": "customer@example.com",
+        }
+        res = renderer.render("customer_communication", minimal_data)
+        assert isinstance(res, BytesIO)
+        assert res.read(5) == b"%PDF-"
