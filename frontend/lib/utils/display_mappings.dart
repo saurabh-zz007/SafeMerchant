@@ -7,7 +7,16 @@ extension BackendDisplayLabel on String? {
 
     final normalized = value.toLowerCase();
     const labels = {
-      'accept_loss': 'Loss Automatically Accepted',
+      'auto_refund': 'Refunded (Auto)',
+      'refund_review': 'Refunded (Reviewed)',
+      'refund_reviewed': 'Refunded (Reviewed)',
+      'auto_submit': 'Contested',
+      'human_review': 'Contested (Reviewed)',
+      'accept_loss': 'Accepted Loss',
+      'accepted_loss': 'Accepted Loss',
+      'resolved_refunded': 'Refunded',
+      'resolved_contested': 'Contested',
+      'resolved_accepted_loss': 'Accepted Loss',
       'human_review_required': 'Action Required: Manual Review',
       'awaiting_review': 'Awaiting Review',
       'dispute_received': 'New Dispute Received',
@@ -23,7 +32,6 @@ extension BackendDisplayLabel on String? {
       'contest_submitted_sandbox_limitation': 'Contest Submitted (Sandbox Limitation)',
       'contest_submission_failed': 'Contest Submission Failed',
       'resolved': 'Resolved',
-      'accepted_loss': 'Accepted Loss',
       'won': 'Won',
       'lost': 'Lost',
       'processing': 'Processing',

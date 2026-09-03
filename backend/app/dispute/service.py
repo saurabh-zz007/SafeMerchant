@@ -38,7 +38,7 @@ class DisputeService:
             payment_id=payment_data.id,
             order_id=payment_data.order_id, 
             reason_code=dispute_data.reason_code,
-            disputed_amount_inr=dispute_data.amount,
+            disputed_amount_inr=dispute_data.amount // 100 if dispute_data.amount else 0,
             amount_deducted=dispute_data.amount_deducted,
             respond_by=dispute_data.respond_by,
             dispute_phase=dispute_data.phase,

@@ -144,11 +144,14 @@ class DisputeRepository:
         status: str,
         *,
         case_resolution: Optional[str] = None,
+        gate_action: Optional[str] = None,
+        outcome: Optional[str] = None,
+        review_context: Optional[dict[str, Any]] = None,
     ) -> None:
         """Update the dispute status and ``updated_at`` timestamp.
 
         If the status is terminal (resolved / error), also sets
-        ``resolved_at`` and maps ``case_resolution`` → ``outcome``.
+        ``resolved_at`` and sets granular ``outcome``.
         """
         values: dict[str, Any] = {
             "status": status,
@@ -159,10 +162,17 @@ class DisputeRepository:
         if status in TERMINAL_STATUSES:
             values["resolved_at"] = datetime.now(timezone.utc)
 
-        if case_resolution:
+        if outcome:
+            values["outcome"] = outcome
+        elif gate_action:
+            values["outcome"] = gate_action
+        elif case_resolution:
             values["outcome"] = RESOLUTION_TO_OUTCOME.get(
                 case_resolution, "open"
             )
+
+        if review_context is not None:
+            values["review_context"] = review_context
 
         stmt = (
             update(Dispute)
@@ -171,7 +181,7 @@ class DisputeRepository:
         )
         await self._session.execute(stmt)
         await self._session.commit()
-        logger.info("Dispute %s → status=%s", dispute_id, status)
+        logger.info("Dispute %s → status=%s (outcome=%s)", dispute_id, status, values.get("outcome"))
 
     async def append_history(
         self,

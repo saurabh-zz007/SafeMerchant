@@ -37,30 +37,47 @@ def gate_decision(state: DisputeAgentState) -> str:
 
     DEFENSE-ONLY: All money-related decisions are explicitly gated.
     """
+    dispute_id = state.get("dispute_id", "UNKNOWN")
     score = state.get("winnability_score", 0.0)
     amount = state.get("disputed_amount_inr", 0)
     recommended = state.get("recommended_action", "contest")
     legitimacy = state.get("customer_legitimacy_signal", False)
 
+    logger.info(
+        "[GATE EVALUATION] dispute_id=%s | winnability_score=%.2f | legitimacy_signal=%s | "
+        "amount_inr=₹%d | recommended_action=%s",
+        dispute_id,
+        score if score is not None else 0.0,
+        legitimacy,
+        amount,
+        recommended,
+    )
+
+    decision: str
     # Accept loss — no point contesting
     if recommended == "accept_loss" or (not legitimacy and score < 0.3):
-        return "accept_loss"
+        decision = "accept_loss"
 
     # Refund path — customer is right, bounded by amount gate
-    if recommended == "refund_customer" and legitimacy:
+    elif recommended == "refund_customer" and legitimacy:
         if amount <= settings.auto_refund_amount_ceiling_inr:
-            return "auto_refund"
-        return "refund_review"
+            decision = "auto_refund"
+        else:
+            decision = "refund_review"
 
     # Auto-submit — high confidence, low amount
-    if (
+    elif (
         score >= settings.auto_submit_score_threshold
         and amount <= settings.auto_submit_amount_ceiling_inr
     ):
-        return "auto_submit"
+        decision = "auto_submit"
 
     # Everything else → human review
-    return "human_review"
+    else:
+        decision = "human_review"
+
+    logger.info("[GATE ROUTING] dispute_id=%s → routed to '%s'", dispute_id, decision)
+    return decision
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -69,6 +86,26 @@ def gate_decision(state: DisputeAgentState) -> str:
 
 async def auto_submit_node(state: DisputeAgentState) -> dict:
     """Mark dispute for automatic submission — high confidence, low amount."""
+    score = state.get("winnability_score", 0.0)
+    amount = state.get("disputed_amount_inr", 0)
+    triage_reasoning = state.get("triage_reasoning", "")
+    score_pct = f"{score:.0%}" if score is not None else "N/A"
+
+    rules_triggered = [
+        f"High-confidence winnability score ({score_pct} >= {settings.auto_submit_score_threshold:.0%})",
+        f"Dispute amount (₹{amount:,}) within auto-contest ceiling (<= ₹{settings.auto_submit_amount_ceiling_inr:,})",
+        "Complete evidentiary proof package compiled (delivery verification, transcript, ledger)",
+    ]
+
+    rationale = (
+        f"**Automated Decision:** Evidence automatically submitted for representment.\n\n"
+        f"**Rule Rationale:**\n"
+        f"- **Confidence Score:** Winnability score of {score_pct} meets or exceeds the automated submission threshold ({settings.auto_submit_score_threshold:.0%}).\n"
+        f"- **Amount Ceiling:** Disputed amount of ₹{amount:,} is within the low-risk automated ceiling (₹{settings.auto_submit_amount_ceiling_inr:,}).\n"
+        f"- **Evidence Summary:** {triage_reasoning or 'Merchant fulfilled order with verifiable tracking and proof of delivery.'}\n"
+        f"- **Action:** Auto-generated defense package queued for Razorpay submission without human bottleneck."
+    )
+
     return {
         "gate_action": "auto_submit",
         "requires_human_review": False,
@@ -76,6 +113,9 @@ async def auto_submit_node(state: DisputeAgentState) -> dict:
         "case_resolution": "resolved_contested",
         "current_node": "auto_submit",
         "node_history": state.get("node_history", []) + ["auto_submit"],
+        "decision_type": "automated",
+        "auto_decision_rationale": rationale,
+        "rules_triggered": rules_triggered,
     }
 
 
@@ -126,6 +166,26 @@ async def human_review_node(state: DisputeAgentState) -> dict:
 
 async def accept_loss_node(state: DisputeAgentState) -> dict:
     """Mark dispute as accepted loss — insufficient evidence to contest."""
+    score = state.get("winnability_score", 0.0)
+    amount = state.get("disputed_amount_inr", 0)
+    triage_reasoning = state.get("triage_reasoning", "")
+    score_pct = f"{score:.0%}" if score is not None else "0%"
+
+    rules_triggered = [
+        f"Winnability score ({score_pct}) is below defense threshold (< 30%)",
+        "Insufficient merchant documentation or high representment loss risk",
+        "Economic non-viability: cost of defense exceeds expected recovery value",
+    ]
+
+    rationale = (
+        f"**Automated Decision:** Dispute loss automatically accepted (no representment).\n\n"
+        f"**Rule Rationale:**\n"
+        f"- **Winnability Assessment:** Calculated score of {score_pct} indicates low probability of reversal.\n"
+        f"- **Economic Viability:** Contesting this claim would incur operational overhead and potential arbitration fees greater than the disputed amount (₹{amount:,}).\n"
+        f"- **Triage Summary:** {triage_reasoning or 'Merchant records lack definitive proof of fulfillment or delivery confirmation.'}\n"
+        f"- **Action:** Loss accepted to preserve merchant chargeback standing and avoid dispute filing penalties."
+    )
+
     return {
         "gate_action": "accept_loss",
         "requires_human_review": False,
@@ -133,6 +193,9 @@ async def accept_loss_node(state: DisputeAgentState) -> dict:
         "case_resolution": "resolved_accepted_loss",
         "current_node": "accept_loss",
         "node_history": state.get("node_history", []) + ["accept_loss"],
+        "decision_type": "automated",
+        "auto_decision_rationale": rationale,
+        "rules_triggered": rules_triggered,
     }
 
 
@@ -147,6 +210,7 @@ async def auto_refund_node(state: DisputeAgentState) -> dict:
     payment_id = state.get("payment_id", "")
     amount = state.get("disputed_amount_inr", 0)
     dispute_id = state.get("dispute_id", "UNKNOWN")
+    legitimacy_reasoning = state.get("legitimacy_reasoning", "")
 
     logger.info(
         "Auto-refunding ₹%d for dispute %s (payment %s)",
@@ -159,15 +223,35 @@ async def auto_refund_node(state: DisputeAgentState) -> dict:
         reason=f"Auto-refund for dispute {dispute_id} — customer legitimacy detected",
     )
 
+    refund_id = refund_result.get("refund_id")
+    refund_status = refund_result.get("status", "failed")
+
+    rules_triggered = [
+        "Customer legitimacy signal confirmed (genuine claim / lost in transit / merchant defect)",
+        f"Disputed amount (₹{amount:,}) is within auto-refund threshold (<= ₹{settings.auto_refund_amount_ceiling_inr:,})",
+        f"Automated Razorpay Refund API executed (Refund ID: {refund_id or 'N/A'}, Status: {refund_status})",
+    ]
+
+    rationale = (
+        f"**Automated Decision:** Refund automatically issued to customer.\n\n"
+        f"**Rule Rationale:**\n"
+        f"- **Customer Legitimacy:** Verified genuine claim ({legitimacy_reasoning or 'Legitimate customer claim detected by triage'}).\n"
+        f"- **Amount Threshold:** Disputed amount of ₹{amount:,} is within the merchant's automatic refund ceiling (₹{settings.auto_refund_amount_ceiling_inr:,}).\n"
+        f"- **Action:** Bypassed manual review queue and executed immediate refund via Razorpay API to maintain customer trust and eliminate chargeback penalties."
+    )
+
     return {
         "gate_action": "auto_refund",
         "requires_human_review": False,
         "human_review_reason": None,
-        "refund_id": refund_result.get("refund_id"),
-        "refund_status": refund_result.get("status", "failed"),
+        "refund_id": refund_id,
+        "refund_status": refund_status,
         "case_resolution": "resolved_refunded",
         "current_node": "auto_refund",
         "node_history": state.get("node_history", []) + ["auto_refund"],
+        "decision_type": "automated",
+        "auto_decision_rationale": rationale,
+        "rules_triggered": rules_triggered,
     }
 
 

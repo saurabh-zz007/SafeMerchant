@@ -20,10 +20,14 @@ from app.core.config import settings
 engine = create_async_engine(
     settings.database_url,
     echo=settings.debug,
-    poolclass=NullPool,
+    pool_size=20,
+    max_overflow=10,
+    pool_pre_ping=True,
+    pool_recycle=300,
     connect_args={
-        "statement_cache_size": 0            # Disables the statement cache entirely
-    }
+        "statement_cache_size": 0,            # Disables the statement cache for transaction pooler
+        "prepared_statement_cache_size": 0,
+    },
 )
 
 # ── Session Factory ──

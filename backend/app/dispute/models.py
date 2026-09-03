@@ -255,16 +255,20 @@ class Dispute(Base):
         DateTime(timezone=True), nullable=True,
         comment="Timestamp when dispute reached terminal state",
     )
+    review_context: Mapped[Optional[dict]] = mapped_column(
+        JSONB, nullable=True,
+        comment="Persisted AI brief and triage context for HITL review",
+    )
 
     # ── Relationships ──
     audit_logs: Mapped[list["DisputeAuditLog"]] = relationship(
-        back_populates="dispute", cascade="all, delete-orphan", lazy="selectin"
+        back_populates="dispute", cascade="all, delete-orphan", lazy="select"
     )
     submission_logs: Mapped[list["DisputeSubmissionLog"]] = relationship(
-        back_populates="dispute", cascade="all, delete-orphan", lazy="selectin"
+        back_populates="dispute", cascade="all, delete-orphan", lazy="select"
     )
     evidence_jobs: Mapped[list["EvidenceJob"]] = relationship(
-        back_populates="dispute", cascade="all, delete-orphan", lazy="selectin"
+        back_populates="dispute", cascade="all, delete-orphan", lazy="select"
     )
 
     def __repr__(self) -> str:

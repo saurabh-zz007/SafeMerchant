@@ -44,6 +44,8 @@ class DashboardController extends GetxController {
   final ServerActivitySocketService _socketService;
 
   StreamSubscription<BackendSocketMessage>? _messageSubscription;
+  StreamSubscription<bool>? _socketStatusSubscription;
+  Timer? _heartbeatTimer;
 
   DashboardConnectionStatus _connectionStatus =
       DashboardConnectionStatus.disconnected;
@@ -145,11 +147,15 @@ class DashboardController extends GetxController {
     unawaited(refreshMetrics());
     unawaited(refreshSelectedAudit());
     await _connectSocket();
+    _startHeartbeat();
   }
 
   Future<void> reconnect() async {
+    _setConnectionStatus(DashboardConnectionStatus.connecting);
     await _messageSubscription?.cancel();
     _messageSubscription = null;
+    await _socketStatusSubscription?.cancel();
+    _socketStatusSubscription = null;
     await _socketService.disconnect();
     await start();
   }
@@ -475,16 +481,61 @@ class DashboardController extends GetxController {
 
   @override
   void onClose() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+    unawaited(_socketStatusSubscription?.cancel());
+    _socketStatusSubscription = null;
     unawaited(_messageSubscription?.cancel());
+    _messageSubscription = null;
     unawaited(_socketService.dispose());
     _apiService.close();
     super.onClose();
+  }
+
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 4), (timer) async {
+      try {
+        final health = await _apiService.fetchHealth(apiBaseUrl);
+        final isHealthy = health['status'] != null;
+        if (isHealthy) {
+          _healthStatus = health['status']?.toString();
+          if (_connectionStatus == DashboardConnectionStatus.disconnected ||
+              _connectionStatus == DashboardConnectionStatus.error) {
+            // Auto-recover connection
+            unawaited(reconnect());
+          }
+        } else {
+          if (_connectionStatus != DashboardConnectionStatus.disconnected) {
+            _setConnectionStatus(DashboardConnectionStatus.disconnected);
+          }
+        }
+      } catch (_) {
+        if (_connectionStatus != DashboardConnectionStatus.disconnected &&
+            _connectionStatus != DashboardConnectionStatus.connecting &&
+            _connectionStatus != DashboardConnectionStatus.loading) {
+          _setConnectionStatus(DashboardConnectionStatus.disconnected);
+        }
+      }
+    });
   }
 
   Future<void> _connectSocket() async {
     _setConnectionStatus(DashboardConnectionStatus.connecting);
     await _messageSubscription?.cancel();
     _messageSubscription = _socketService.messages.listen(_handleSocketMessage);
+
+    await _socketStatusSubscription?.cancel();
+    _socketStatusSubscription = _socketService.connectionStateStream.listen((isConnected) {
+      if (!isConnected) {
+        if (_connectionStatus != DashboardConnectionStatus.connecting &&
+            _connectionStatus != DashboardConnectionStatus.loading) {
+          _setConnectionStatus(DashboardConnectionStatus.disconnected);
+        }
+      } else {
+        _setConnectionStatus(DashboardConnectionStatus.connected);
+      }
+    });
 
     try {
       await _socketService.connect(websocketUrl);
@@ -500,7 +551,7 @@ class DashboardController extends GetxController {
       );
     } catch (error) {
       _errorMessage = error.toString();
-      _setConnectionStatus(DashboardConnectionStatus.error);
+      _setConnectionStatus(DashboardConnectionStatus.disconnected);
       _prependEvent(
         DashboardEvent(
           receivedAt: DateTime.now(),

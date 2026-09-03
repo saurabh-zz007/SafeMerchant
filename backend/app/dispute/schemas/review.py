@@ -60,5 +60,6 @@ class DisputeListItem(BaseModel):
     evidence_job_id: Optional[int] = None
     evidence_job_status: Optional[str] = None
     evidence_job_error: Optional[str] = None
+    review_context: Optional[dict[str, Any]] = None
 
     model_config = {"from_attributes": True}

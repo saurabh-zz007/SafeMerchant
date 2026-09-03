@@ -111,6 +111,169 @@ class _MainDashboardLayoutState extends State<MainDashboardLayout> {
   }
 }
 
+class FormattedAiText extends StatelessWidget {
+  const FormattedAiText({
+    super.key,
+    required this.text,
+    this.style,
+    this.selectable = true,
+  });
+
+  final String text;
+  final TextStyle? style;
+  final bool selectable;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final defaultStyle = style ?? theme.textTheme.bodyMedium ?? const TextStyle();
+    final lines = text.split('\n');
+
+    final List<Widget> widgets = [];
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      final trimmed = line.trim();
+
+      if (trimmed.isEmpty) {
+        widgets.add(const SizedBox(height: 6));
+        continue;
+      }
+
+      // Headers (#, ##, ###)
+      if (trimmed.startsWith('### ')) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 4),
+          child: _buildRichText(
+            trimmed.substring(4),
+            defaultStyle.copyWith(fontSize: 14, fontWeight: FontWeight.w700),
+            theme,
+          ),
+        ));
+      } else if (trimmed.startsWith('## ')) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 10, bottom: 4),
+          child: _buildRichText(
+            trimmed.substring(3),
+            defaultStyle.copyWith(fontSize: 15, fontWeight: FontWeight.w700),
+            theme,
+          ),
+        ));
+      } else if (trimmed.startsWith('# ')) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 12, bottom: 6),
+          child: _buildRichText(
+            trimmed.substring(2),
+            defaultStyle.copyWith(fontSize: 16, fontWeight: FontWeight.w800),
+            theme,
+          ),
+        ));
+      }
+      // Bullet lists (- , * , • )
+      else if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
+        final bulletContent = trimmed.substring(2);
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(left: 8, top: 3, bottom: 3),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '• ',
+                style: defaultStyle.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              Expanded(
+                child: _buildRichText(bulletContent, defaultStyle, theme),
+              ),
+            ],
+          ),
+        ));
+      }
+      // Normal paragraph line
+      else {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 2, bottom: 2),
+          child: _buildRichText(trimmed, defaultStyle, theme),
+        ));
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: widgets,
+    );
+  }
+
+  Widget _buildRichText(String rawText, TextStyle baseStyle, ThemeData theme) {
+    final spans = _parseInlineSpans(rawText, baseStyle, theme);
+    if (selectable) {
+      return SelectableText.rich(
+        TextSpan(children: spans),
+        style: baseStyle,
+      );
+    }
+    return RichText(
+      text: TextSpan(children: spans),
+    );
+  }
+
+  static List<TextSpan> _parseInlineSpans(
+    String input,
+    TextStyle baseStyle,
+    ThemeData theme,
+  ) {
+    final List<TextSpan> spans = [];
+    final pattern = RegExp(r'(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)');
+    int lastEnd = 0;
+
+    for (final match in pattern.allMatches(input)) {
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(
+          text: input.substring(lastEnd, match.start),
+          style: baseStyle,
+        ));
+      }
+
+      final matchText = match.group(0)!;
+      if (matchText.startsWith('**') && matchText.endsWith('**')) {
+        spans.add(TextSpan(
+          text: matchText.substring(2, matchText.length - 2),
+          style: baseStyle.copyWith(fontWeight: FontWeight.w700),
+        ));
+      } else if (matchText.startsWith('*') && matchText.endsWith('*')) {
+        spans.add(TextSpan(
+          text: matchText.substring(1, matchText.length - 1),
+          style: baseStyle.copyWith(fontStyle: FontStyle.italic),
+        ));
+      } else if (matchText.startsWith('`') && matchText.endsWith('`')) {
+        spans.add(TextSpan(
+          text: matchText.substring(1, matchText.length - 1),
+          style: baseStyle.copyWith(
+            fontFamily: 'monospace',
+            backgroundColor: theme.dividerColor.withValues(alpha: 0.15),
+          ),
+        ));
+      }
+      lastEnd = match.end;
+    }
+
+    if (lastEnd < input.length) {
+      spans.add(TextSpan(
+        text: input.substring(lastEnd),
+        style: baseStyle,
+      ));
+    }
+
+    if (spans.isEmpty) {
+      spans.add(TextSpan(text: input, style: baseStyle));
+    }
+
+    return spans;
+  }
+}
+
 class _HilReviewDialog extends StatefulWidget {
   const _HilReviewDialog({
     required this.viewModel,
@@ -313,8 +476,15 @@ class _HilReviewDialogState extends State<_HilReviewDialog> {
                             ),
                             if (_reviewReason != null) ...[
                               const SizedBox(height: 10),
-                              Text(
-                                'Review reason: $_reviewReason',
+                              FormattedAiText(
+                                text: '**Review Trigger:** $_reviewReason',
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            ],
+                            if (_data['triage_reasoning'] != null) ...[
+                              const SizedBox(height: 8),
+                              FormattedAiText(
+                                text: '**Triage Analysis:** ${_data['triage_reasoning']}',
                                 style: theme.textTheme.bodySmall,
                               ),
                             ],
@@ -360,13 +530,13 @@ class _HilReviewDialogState extends State<_HilReviewDialog> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Draft Response',
+                              Text('Draft Response / Defense Brief',
                                   style: theme.textTheme.titleSmall),
                               const SizedBox(height: 8),
                               Expanded(
                                 child: SingleChildScrollView(
-                                  child: Text(
-                                    _draftLetter!,
+                                  child: FormattedAiText(
+                                    text: _draftLetter!,
                                     style: theme.textTheme.bodySmall?.copyWith(
                                       fontFamily: 'monospace',
                                       height: 1.5,
@@ -403,7 +573,7 @@ class _HilReviewDialogState extends State<_HilReviewDialog> {
                     child: OutlinedButton.icon(
                       onPressed: _submitting ? null : () => _submit('reject'),
                       icon: const Icon(Icons.close, size: 18),
-                      label: const Text('Accept Loss'),
+                      label: Text(_recommendedAction == 'refund_customer' ? 'Reject Refund' : 'Accept Loss'),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         foregroundColor: theme.colorScheme.error,
@@ -423,7 +593,7 @@ class _HilReviewDialogState extends State<_HilReviewDialog> {
                                   strokeWidth: 2, color: Colors.white),
                             )
                           : const Icon(Icons.send, size: 18),
-                      label: const Text('Submit Evidence'),
+                      label: Text(_recommendedAction == 'refund_customer' ? 'Approve Refund' : 'Submit Evidence'),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
@@ -597,7 +767,7 @@ class _DisputeDetailsDialogState extends State<_DisputeDetailsDialog> {
         final phase = dispute.details['phase']?.toString() ?? disputeData['phase']?.toString() ?? 'N/A';
         final isRunning = dispute.status == DisputeStatus.processing;
 
-        // Draft preview
+        // Draft preview & Review Context
         final latestState = history.reversed.firstWhere(
           (item) => item is Map && item['event'] == 'node_update' && item['state_update'] != null,
           orElse: () => null,
@@ -606,6 +776,40 @@ class _DisputeDetailsDialogState extends State<_DisputeDetailsDialog> {
         final draftLetter = stateUpdate?['draft_response_letter']?.toString() ??
             stateUpdate?['verified_explanation_letter']?.toString() ??
             stateUpdate?['draft_explanation_letter']?.toString();
+
+        final reviewCtx = dispute.reviewContext ??
+            (dispute.details['review_context'] as Map<String, dynamic>?) ??
+            stateUpdate;
+
+        final winnabilityScore = reviewCtx?['winnability_score'];
+        final winnabilityPct = winnabilityScore is num
+            ? '${(winnabilityScore * 100).toStringAsFixed(1)}%'
+            : (winnabilityScore != null ? '$winnabilityScore' : null);
+
+        final recommendedAction = reviewCtx?['recommended_action']?.toString() ??
+            reviewCtx?['gate_action']?.toString();
+        final isRefundPath = recommendedAction == 'refund_customer' ||
+            reviewCtx?['paused_node'] == 'refund_review';
+
+        final reviewReason = reviewCtx?['human_review_reason']?.toString();
+        final triageReasoning = reviewCtx?['triage_reasoning']?.toString();
+        final autoDecisionRationale = reviewCtx?['auto_decision_rationale']?.toString();
+        final rulesTriggered = (reviewCtx?['rules_triggered'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            const <String>[];
+        final isAutomatedDecision = reviewCtx?['decision_type'] == 'automated' || !dispute.requiresHumanReview;
+        final customerLegitimacy = reviewCtx?['customer_legitimacy_signal'] == true;
+        final legitimacyReasoning = reviewCtx?['legitimacy_reasoning']?.toString();
+        final riskFactors = (reviewCtx?['risk_factors'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            const <String>[];
+
+        final reviewDraftLetter = reviewCtx?['draft_response_letter']?.toString() ??
+            reviewCtx?['verified_explanation_letter']?.toString() ??
+            reviewCtx?['draft_explanation_letter']?.toString() ??
+            draftLetter;
 
         return Dialog(
           shape: RoundedRectangleBorder(
@@ -681,6 +885,8 @@ class _DisputeDetailsDialogState extends State<_DisputeDetailsDialog> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.stretch,
                                       children: [
+                                        _DetailRow(label: 'Outcome', value: dispute.displayOutcome),
+                                        const Divider(height: 16),
                                         _DetailRow(label: 'Customer Email', value: (customerEmail != null && customerEmail != 'Unknown') ? customerEmail : (isRunning ? 'Processing...' : 'Customer')),
                                         const Divider(height: 16),
                                         _DetailRow(label: 'Disputed Amount', value: amountStr),
@@ -1095,73 +1301,312 @@ class _DisputeDetailsDialogState extends State<_DisputeDetailsDialog> {
                                   ],
 
                                   // Review Panel (if awaiting review)
-                                  if (dispute.requiresHumanReview) ...[
+                                  if (dispute.requiresHumanReview || reviewCtx != null) ...[
                                     Container(
                                       padding: const EdgeInsets.all(16),
                                       decoration: BoxDecoration(
-                                        border: Border.all(color: theme.colorScheme.error.withValues(alpha: 0.1)),
+                                        border: Border.all(
+                                          color: dispute.requiresHumanReview
+                                              ? theme.colorScheme.error.withValues(alpha: 0.35)
+                                              : theme.dividerColor,
+                                        ),
                                         borderRadius: BorderRadius.circular(8),
+                                        color: dispute.requiresHumanReview
+                                            ? theme.colorScheme.error.withValues(alpha: 0.03)
+                                            : theme.colorScheme.surfaceContainerLowest,
                                       ),
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.stretch,
                                         children: [
                                           Row(
                                             children: [
-                                              Icon(Icons.gavel, color: theme.colorScheme.error, size: 18),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                'Review Actions Required',
-                                                style: theme.textTheme.titleSmall?.copyWith(
-                                                  color: theme.colorScheme.error,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
+                                              Icon(
+                                                dispute.requiresHumanReview
+                                                    ? Icons.gavel
+                                                    : (isAutomatedDecision ? Icons.auto_awesome : Icons.psychology_outlined),
+                                                color: dispute.requiresHumanReview
+                                                    ? theme.colorScheme.error
+                                                    : theme.colorScheme.primary,
+                                                size: 20,
                                               ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 12),
-                                          TextField(
-                                            controller: _reasonController,
-                                            maxLines: 2,
-                                            decoration: const InputDecoration(
-                                              labelText: 'Reason (optional)',
-                                              hintText: 'Explain your decision...',
-                                              border: OutlineInputBorder(),
-                                            ),
-                                          ),
-                                          const SizedBox(height: 14),
-                                          Row(
-                                            children: [
+                                              const SizedBox(width: 8),
                                               Expanded(
-                                                child: OutlinedButton.icon(
-                                                  onPressed: _submitting ? null : () => _submitReview('reject'),
-                                                  icon: const Icon(Icons.close, size: 16),
-                                                  label: const Text('Accept Loss'),
-                                                  style: OutlinedButton.styleFrom(
-                                                    foregroundColor: theme.colorScheme.error,
-                                                    side: BorderSide(color: theme.colorScheme.error),
+                                                child: Text(
+                                                  dispute.requiresHumanReview
+                                                      ? 'HITL Review Required — AI Decision Brief'
+                                                      : (isAutomatedDecision
+                                                          ? 'Automated Decision Rationale & Rule Context'
+                                                          : 'AI Review Brief & Decision Context'),
+                                                  style: theme.textTheme.titleSmall?.copyWith(
+                                                    color: dispute.requiresHumanReview ? theme.colorScheme.error : null,
+                                                    fontWeight: FontWeight.w700,
                                                   ),
                                                 ),
                                               ),
-                                              const SizedBox(width: 10),
-                                              Expanded(
-                                                child: FilledButton.icon(
-                                                  onPressed: _submitting ? null : () => _submitReview('accept'),
-                                                  icon: _submitting
-                                                      ? const SizedBox(
-                                                          width: 14,
-                                                          height: 14,
-                                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                                        )
-                                                      : const Icon(Icons.check, size: 16),
-                                                  label: const Text('Submit Evidence'),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: (dispute.requiresHumanReview
+                                                          ? theme.colorScheme.error
+                                                          : theme.colorScheme.primary)
+                                                      .withValues(alpha: 0.15),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  dispute.requiresHumanReview
+                                                      ? 'Awaiting Operator'
+                                                      : 'Auto-Resolved',
+                                                  style: theme.textTheme.bodySmall?.copyWith(
+                                                    color: dispute.requiresHumanReview
+                                                        ? theme.colorScheme.error
+                                                        : theme.colorScheme.primary,
+                                                    fontWeight: FontWeight.w700,
+                                                    fontSize: 10,
+                                                  ),
                                                 ),
                                               ),
                                             ],
                                           ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
+                                           const SizedBox(height: 12),
+
+                                           // Key Summary Metrics / Chips
+                                           Wrap(
+                                             spacing: 12,
+                                             runSpacing: 8,
+                                             children: [
+                                               if (winnabilityPct != null)
+                                                 _InfoChip(label: 'Winnability', value: winnabilityPct),
+                                               if (recommendedAction != null)
+                                                 _InfoChip(
+                                                   label: 'Recommended',
+                                                   value: recommendedAction.toDisplayLabel(),
+                                                 ),
+                                               if (customerLegitimacy)
+                                                 Container(
+                                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                   decoration: BoxDecoration(
+                                                     color: Colors.blue.withValues(alpha: 0.12),
+                                                     borderRadius: BorderRadius.circular(4),
+                                                     border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                                                   ),
+                                                   child: Row(
+                                                     mainAxisSize: MainAxisSize.min,
+                                                     children: [
+                                                       const Icon(Icons.verified_user_outlined, size: 14, color: Colors.blue),
+                                                       const SizedBox(width: 4),
+                                                       Text(
+                                                         'Customer Legitimacy Detected',
+                                                         style: theme.textTheme.bodySmall?.copyWith(
+                                                           color: Colors.blue,
+                                                           fontWeight: FontWeight.w600,
+                                                           fontSize: 11,
+                                                         ),
+                                                       ),
+                                                     ],
+                                                   ),
+                                                 ),
+                                             ],
+                                           ),
+
+                                            // Trigger Reason (for HITL or specific manual review)
+                                            if (reviewReason != null && reviewReason.isNotEmpty) ...[
+                                              const SizedBox(height: 10),
+                                              Container(
+                                                padding: const EdgeInsets.all(10),
+                                                decoration: BoxDecoration(
+                                                  color: (theme.brightness == Brightness.dark) ? Colors.black26 : Colors.grey.shade50,
+                                                  borderRadius: BorderRadius.circular(6),
+                                                  border: Border.all(color: theme.dividerColor),
+                                                ),
+                                                child: FormattedAiText(
+                                                  text: '**Review Trigger:** $reviewReason',
+                                                  style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
+                                                ),
+                                              ),
+                                            ],
+
+                                           // Automated Rules & Constraints Triggered (if auto resolved)
+                                           if (rulesTriggered.isNotEmpty) ...[
+                                             const SizedBox(height: 10),
+                                             Text(
+                                               'Automated Rules & Constraints Triggered:',
+                                               style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
+                                             ),
+                                             const SizedBox(height: 6),
+                                             Column(
+                                               crossAxisAlignment: CrossAxisAlignment.stretch,
+                                               children: rulesTriggered.map((rule) => Padding(
+                                                 padding: const EdgeInsets.only(bottom: 4),
+                                                 child: Row(
+                                                   crossAxisAlignment: CrossAxisAlignment.start,
+                                                   children: [
+                                                     Icon(
+                                                       Icons.check_circle_outline,
+                                                       size: 14,
+                                                       color: theme.colorScheme.primary,
+                                                     ),
+                                                     const SizedBox(width: 6),
+                                                     Expanded(
+                                                       child: Text(
+                                                         rule,
+                                                         style: theme.textTheme.bodySmall?.copyWith(height: 1.3),
+                                                       ),
+                                                     ),
+                                                   ],
+                                                 ),
+                                               )).toList(),
+                                             ),
+                                           ],
+
+                                           // Auto Decision Rationale or Triage Analysis
+                                           if (autoDecisionRationale != null && autoDecisionRationale.isNotEmpty) ...[
+                                             const SizedBox(height: 10),
+                                             Container(
+                                               padding: const EdgeInsets.all(12),
+                                               decoration: BoxDecoration(
+                                                 color: (theme.brightness == Brightness.dark) ? Colors.black26 : Colors.grey.shade50,
+                                                 borderRadius: BorderRadius.circular(6),
+                                                 border: Border.all(color: theme.dividerColor),
+                                               ),
+                                               child: FormattedAiText(
+                                                 text: autoDecisionRationale,
+                                                 style: theme.textTheme.bodySmall?.copyWith(height: 1.45),
+                                               ),
+                                             ),
+                                           ] else if (triageReasoning != null && triageReasoning.isNotEmpty) ...[
+                                             const SizedBox(height: 8),
+                                             Container(
+                                               padding: const EdgeInsets.all(10),
+                                               decoration: BoxDecoration(
+                                                 color: (theme.brightness == Brightness.dark) ? Colors.black26 : Colors.grey.shade50,
+                                                 borderRadius: BorderRadius.circular(6),
+                                                 border: Border.all(color: theme.dividerColor),
+                                               ),
+                                               child: FormattedAiText(
+                                                 text: '**Triage Analysis:** $triageReasoning',
+                                                 style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
+                                               ),
+                                             ),
+                                           ],
+
+                                           if (legitimacyReasoning != null &&
+                                               legitimacyReasoning.isNotEmpty &&
+                                               !(autoDecisionRationale ?? '').contains(legitimacyReasoning) &&
+                                               !(triageReasoning ?? '').contains(legitimacyReasoning)) ...[
+                                             const SizedBox(height: 8),
+                                             Container(
+                                               padding: const EdgeInsets.all(10),
+                                               decoration: BoxDecoration(
+                                                 color: (theme.brightness == Brightness.dark) ? Colors.black26 : Colors.grey.shade50,
+                                                 borderRadius: BorderRadius.circular(6),
+                                                 border: Border.all(color: theme.dividerColor),
+                                               ),
+                                               child: FormattedAiText(
+                                                 text: '**Legitimacy Signal Reasoning:** $legitimacyReasoning',
+                                                 style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
+                                               ),
+                                             ),
+                                           ],
+
+                                           // Risk factors
+                                           if (riskFactors.isNotEmpty) ...[
+                                             const SizedBox(height: 10),
+                                             Text('Identified Risk Factors:', style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
+                                             const SizedBox(height: 4),
+                                             Wrap(
+                                               spacing: 6,
+                                               runSpacing: 4,
+                                               children: riskFactors.map((rf) => Container(
+                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                 decoration: BoxDecoration(
+                                                   color: (theme.brightness == Brightness.dark) ? Colors.white10 : Colors.grey.shade200,
+                                                   borderRadius: BorderRadius.circular(4),
+                                                 ),
+                                                 child: Text(rf, style: theme.textTheme.bodySmall?.copyWith(fontSize: 11)),
+                                               )).toList(),
+                                             ),
+                                           ],
+
+                                           // Draft letter preview inside HITL box (if available)
+                                           if (reviewDraftLetter != null && reviewDraftLetter.isNotEmpty) ...[
+                                             const SizedBox(height: 12),
+                                             Text('AI Drafted Defense Letter:', style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
+                                             const SizedBox(height: 4),
+                                             Container(
+                                               padding: const EdgeInsets.all(10),
+                                               constraints: const BoxConstraints(maxHeight: 140),
+                                               decoration: BoxDecoration(
+                                                 color: (theme.brightness == Brightness.dark) ? Colors.black38 : Colors.grey.shade100,
+                                                 borderRadius: BorderRadius.circular(6),
+                                                 border: Border.all(color: theme.dividerColor),
+                                               ),
+                                               child: SingleChildScrollView(
+                                                 child: FormattedAiText(
+                                                   text: reviewDraftLetter,
+                                                   style: theme.textTheme.bodySmall?.copyWith(
+                                                     fontFamily: 'monospace',
+                                                     height: 1.4,
+                                                     fontSize: 11,
+                                                   ),
+                                                 ),
+                                               ),
+                                             ),
+                                           ],
+
+                                           // Active HITL Decision Controls (if awaiting review)
+                                           if (dispute.requiresHumanReview) ...[
+                                             const SizedBox(height: 14),
+                                             const Divider(height: 1),
+                                             const SizedBox(height: 12),
+                                             TextField(
+                                               controller: _reasonController,
+                                               maxLines: 2,
+                                               decoration: const InputDecoration(
+                                                 labelText: 'Reviewer Note / Reason (optional)',
+                                                 hintText: 'Add an explanation for your decision...',
+                                                 border: OutlineInputBorder(),
+                                               ),
+                                             ),
+                                             const SizedBox(height: 14),
+                                             Row(
+                                               children: [
+                                                 Expanded(
+                                                   child: OutlinedButton.icon(
+                                                     onPressed: _submitting ? null : () => _submitReview('reject'),
+                                                     icon: const Icon(Icons.close, size: 16),
+                                                     label: Text(isRefundPath ? 'Reject Refund' : 'Accept Loss'),
+                                                     style: OutlinedButton.styleFrom(
+                                                       padding: const EdgeInsets.symmetric(vertical: 14),
+                                                       foregroundColor: theme.colorScheme.error,
+                                                       side: BorderSide(color: theme.colorScheme.error),
+                                                     ),
+                                                   ),
+                                                 ),
+                                                 const SizedBox(width: 10),
+                                                 Expanded(
+                                                   child: FilledButton.icon(
+                                                     onPressed: _submitting ? null : () => _submitReview('accept'),
+                                                     icon: _submitting
+                                                         ? const SizedBox(
+                                                             width: 14,
+                                                             height: 14,
+                                                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                                           )
+                                                         : const Icon(Icons.check, size: 16),
+                                                     label: Text(isRefundPath ? 'Approve Refund' : 'Submit Evidence'),
+                                                     style: FilledButton.styleFrom(
+                                                       padding: const EdgeInsets.symmetric(vertical: 14),
+                                                     ),
+                                                   ),
+                                                 ),
+                                               ],
+                                             ),
+                                           ],
+                                         ],
+                                       ),
+                                     ),
+                                     const SizedBox(height: 16),
+                                   ],
                                 ],
                               ),
                             ),
@@ -1550,57 +1995,86 @@ class _Sidebar extends StatelessWidget {
                 onPressed: () => onSelected(DashboardSection.settings),
               ),
               const Spacer(),
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: theme.dividerColor),
-                  borderRadius: BorderRadius.circular(8),
-                  color: theme.colorScheme.surface,
-                ),
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color:
-                            theme.colorScheme.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'SM',
-                        style: TextStyle(
+              Tooltip(
+                message:
+                    'Authentication is currently in evaluation mode. Role-based access control (RBAC) and OAuth will be implemented in a future release.',
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: theme.dividerColor.withValues(alpha: 0.6),
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    color: theme.colorScheme.surfaceContainerLowest,
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.science_outlined,
+                          size: 16,
                           color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Risk Ops',
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontSize: 13,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Wrap(
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 4,
+                              runSpacing: 2,
+                              children: [
+                                Text(
+                                  'Test Mode',
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                  child: Text(
+                                    'No Auth',
+                                    style: TextStyle(
+                                      color: (theme.brightness == Brightness.dark) ? Colors.amberAccent : Colors.amber.shade900,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          Text(
-                            'ops@safemerchant.ai',
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: muted,
+                            const SizedBox(height: 2),
+                            Text(
+                              'Demo environment',
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontSize: 10,
+                                color: muted,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -1724,22 +2198,33 @@ class _TopBar extends StatelessWidget {
             Flexible(
               flex: 2,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: TextField(
+                constraints: const BoxConstraints(maxWidth: 380),
+                child: const TextField(
                   decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search, size: 18),
+                    prefixIcon: Icon(Icons.search, size: 18),
                     hintText: 'Search disputes, payments, customers',
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                    suffixIcon: IconButton(
-                      tooltip: 'Reconnect',
-                      onPressed: viewModel.isBusy ? null : viewModel.reconnect,
-                      icon: const Icon(Icons.sync, size: 18),
-                    ),
+                    contentPadding: EdgeInsets.symmetric(vertical: 10),
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
+            // Global Connection Status Indicator
+            _GlobalConnectionStatus(status: viewModel.connectionStatus),
+            const SizedBox(width: 8),
+            // Standalone Reconnect Action Button (works globally across all tabs)
+            IconButton(
+              tooltip: 'Reconnect to SafeMerchant Server',
+              onPressed: viewModel.isBusy ? null : viewModel.reconnect,
+              icon: viewModel.isBusy
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh, size: 20),
+            ),
+            const SizedBox(width: 8),
             IconButton(
               tooltip: themeProvider.isDarkMode
                   ? 'Use light theme'
@@ -1782,6 +2267,66 @@ class _TopBar extends StatelessWidget {
   }
 }
 
+class _GlobalConnectionStatus extends StatelessWidget {
+  const _GlobalConnectionStatus({required this.status});
+
+  final DashboardConnectionStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final (color, label) = switch (status) {
+      DashboardConnectionStatus.connected => (
+        isDark ? Colors.greenAccent : Colors.green.shade700,
+        'Live',
+      ),
+      DashboardConnectionStatus.loading ||
+      DashboardConnectionStatus.connecting => (
+        isDark ? Colors.amberAccent : Colors.amber.shade800,
+        'Reconnecting',
+      ),
+      DashboardConnectionStatus.error ||
+      DashboardConnectionStatus.disconnected => (
+        isDark ? Colors.redAccent : Colors.red.shade700,
+        'Disconnected',
+      ),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class OverviewScreen extends StatelessWidget {
   const OverviewScreen({super.key, required this.viewModel});
 
@@ -1794,11 +2339,10 @@ class OverviewScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _SectionHeader(
+          const _SectionHeader(
             title: 'Command Center',
             subtitle:
                 'Live operational view of dispute automation and risk exposure.',
-            trailing: _ConnectionLabel(status: viewModel.connectionStatus),
           ),
           const SizedBox(height: 20),
           LayoutBuilder(
@@ -2485,21 +3029,6 @@ class _ActivityLine extends StatelessWidget {
   }
 }
 
-class _ConnectionLabel extends StatelessWidget {
-  const _ConnectionLabel({required this.status});
-
-  final DashboardConnectionStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    return _OutlineLabel(
-      icon: status == DashboardConnectionStatus.connected
-          ? Icons.sensors
-          : Icons.link_off,
-      label: _connectionText(status),
-    );
-  }
-}
 
 class _StatusPill extends StatelessWidget {
   const _StatusPill({required this.dispute});
@@ -2519,26 +3048,32 @@ class _StatusPill extends StatelessWidget {
       icon = Icons.gavel;
     } else {
       switch (dispute.status) {
-        case DisputeStatus.won:
-        case DisputeStatus.resolved:
-          baseColor = isDark ? Colors.greenAccent : Colors.green.shade700;
-          icon = Icons.check_circle_outline;
+        case DisputeStatus.autoRefund:
+        case DisputeStatus.refundReviewed:
+          baseColor = isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB);
+          icon = Icons.replay;
           break;
-        case DisputeStatus.lost:
-          baseColor = isDark ? Colors.redAccent : Colors.red.shade700;
-          icon = Icons.cancel_outlined;
+        case DisputeStatus.contested:
+        case DisputeStatus.won:
+        case DisputeStatus.evidenceSubmitted:
+          baseColor = isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED);
+          icon = Icons.send_outlined;
           break;
         case DisputeStatus.acceptedLoss:
-          baseColor = isDark ? Colors.orangeAccent : Colors.orange.shade800;
-          icon = Icons.gavel;
+          baseColor = isDark ? Colors.grey.shade400 : Colors.grey.shade700;
+          icon = Icons.remove_circle_outline;
           break;
         case DisputeStatus.contestReadySandboxLimitation:
           baseColor = isDark ? const Color(0xFF818CF8) : const Color(0xFF4F46E5);
           icon = Icons.info_outline;
           break;
-        case DisputeStatus.evidenceSubmitted:
+        case DisputeStatus.lost:
+          baseColor = isDark ? Colors.redAccent : Colors.red.shade700;
+          icon = Icons.cancel_outlined;
+          break;
+        case DisputeStatus.resolved:
           baseColor = isDark ? Colors.tealAccent : Colors.teal.shade700;
-          icon = Icons.send_outlined;
+          icon = Icons.check_circle_outline;
           break;
         case DisputeStatus.processing:
           baseColor = isDark ? Colors.blueAccent : Colors.blue.shade700;
@@ -2640,16 +3175,6 @@ String _sectionTitle(DashboardSection section) {
     DashboardSection.disputes => 'Disputes',
     DashboardSection.analytics => 'Analytics',
     DashboardSection.settings => 'Settings',
-  };
-}
-
-String _connectionText(DashboardConnectionStatus status) {
-  return switch (status) {
-    DashboardConnectionStatus.connected => 'Live',
-    DashboardConnectionStatus.loading => 'Loading',
-    DashboardConnectionStatus.connecting => 'Connecting',
-    DashboardConnectionStatus.error => 'Attention',
-    DashboardConnectionStatus.disconnected => 'Offline',
   };
 }
 

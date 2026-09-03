@@ -9,9 +9,11 @@ Endpoints:
 """
 
 
+import asyncio
 import hashlib
 import hmac
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Any
 from sqlalchemy import text
@@ -52,6 +54,104 @@ def _get_graph(request: Request):
 def _make_config(dispute_id: str) -> dict[str, Any]:
     """Build the LangGraph config with the dispute as the thread_id."""
     return {"configurable": {"thread_id": dispute_id}}
+
+
+def _build_auto_decision_explanation(
+    state_values: dict[str, Any],
+    gate_action: str | None,
+    outcome: str,
+) -> dict[str, Any]:
+    """Build a comprehensive, rule-based decision explanation context for automated outcomes."""
+    from app.core.config import settings
+
+    score = state_values.get("winnability_score", 0.0)
+    amount = state_values.get("disputed_amount_inr", 0)
+    legitimacy = state_values.get("customer_legitimacy_signal", False)
+    legitimacy_reasoning = state_values.get("legitimacy_reasoning") or ""
+    triage_reasoning = state_values.get("triage_reasoning") or ""
+    recommended = state_values.get("recommended_action") or gate_action or outcome
+    risk_factors = state_values.get("risk_factors") or []
+    draft_letter = (
+        state_values.get("draft_response_letter")
+        or state_values.get("verified_explanation_letter")
+        or state_values.get("draft_explanation_letter")
+    )
+    refund_id = state_values.get("refund_id")
+    refund_status = state_values.get("refund_status")
+    existing_rationale = state_values.get("auto_decision_rationale")
+    rules_triggered = list(state_values.get("rules_triggered") or [])
+
+    score_pct = f"{score:.0%}" if score is not None else "N/A"
+
+    if not rules_triggered:
+        if outcome == "auto_refund" or gate_action == "auto_refund":
+            rules_triggered = [
+                "Customer legitimacy signal confirmed (genuine claim / lost transit / merchant defect)",
+                f"Disputed amount (₹{amount:,}) within auto-refund threshold (<= ₹{settings.auto_refund_amount_ceiling_inr:,})",
+            ]
+            if refund_id:
+                rules_triggered.append(f"Razorpay Refund API executed (Refund ID: {refund_id}, Status: {refund_status})")
+        elif outcome == "accept_loss" or gate_action == "accept_loss":
+            rules_triggered = [
+                f"Winnability score ({score_pct}) below viable defense threshold (< 30%)",
+                "Insufficient merchant documentation or high representment loss risk",
+                "Economic non-viability: cost of defense exceeds expected recovery value",
+            ]
+        elif outcome == "auto_submit" or gate_action == "auto_submit":
+            rules_triggered = [
+                f"High-confidence winnability score ({score_pct} >= {settings.auto_submit_score_threshold:.0%})",
+                f"Disputed amount (₹{amount:,}) within auto-contest ceiling (<= ₹{settings.auto_submit_amount_ceiling_inr:,})",
+                "Complete evidentiary proof package compiled (delivery verification, transcript, ledger)",
+            ]
+
+    auto_rationale = existing_rationale
+    if not auto_rationale:
+        if outcome == "auto_refund" or gate_action == "auto_refund":
+            auto_rationale = (
+                f"**Automated Decision:** Refund automatically issued to customer.\n\n"
+                f"**Rule Rationale:**\n"
+                f"- **Customer Legitimacy:** Verified genuine claim ({legitimacy_reasoning or 'Legitimate customer claim detected by triage'}).\n"
+                f"- **Amount Threshold:** Disputed amount of ₹{amount:,} is within the merchant's automatic refund ceiling (₹{settings.auto_refund_amount_ceiling_inr:,}).\n"
+                f"- **Action:** Bypassed manual review queue and executed immediate refund via Razorpay API to maintain customer trust and eliminate chargeback penalties."
+            )
+        elif outcome == "accept_loss" or gate_action == "accept_loss":
+            auto_rationale = (
+                f"**Automated Decision:** Dispute loss automatically accepted (no representment).\n\n"
+                f"**Rule Rationale:**\n"
+                f"- **Winnability Assessment:** Calculated score of {score_pct} indicates low probability of reversal.\n"
+                f"- **Economic Viability:** Contesting this claim would incur operational overhead and potential arbitration fees greater than the disputed amount (₹{amount:,}).\n"
+                f"- **Triage Summary:** {triage_reasoning or 'Merchant records lack definitive proof of fulfillment or delivery confirmation.'}\n"
+                f"- **Action:** Loss accepted to preserve merchant chargeback standing and avoid dispute filing penalties."
+            )
+        elif outcome == "auto_submit" or gate_action == "auto_submit":
+            auto_rationale = (
+                f"**Automated Decision:** Evidence automatically submitted for representment.\n\n"
+                f"**Rule Rationale:**\n"
+                f"- **Confidence Score:** Winnability score of {score_pct} meets or exceeds the automated submission threshold ({settings.auto_submit_score_threshold:.0%}).\n"
+                f"- **Amount Ceiling:** Disputed amount of ₹{amount:,} is within the low-risk automated ceiling (₹{settings.auto_submit_amount_ceiling_inr:,}).\n"
+                f"- **Evidence Summary:** {triage_reasoning or 'Merchant fulfilled order with verifiable tracking and proof of delivery.'}\n"
+                f"- **Action:** Auto-generated defense package queued for Razorpay submission without human bottleneck."
+            )
+        else:
+            auto_rationale = triage_reasoning or f"Automated outcome '{outcome}' applied by rule engine."
+
+    return {
+        "decision_type": "automated",
+        "gate_action": gate_action,
+        "outcome": outcome,
+        "winnability_score": score,
+        "recommended_action": recommended,
+        "customer_legitimacy_signal": legitimacy,
+        "legitimacy_reasoning": legitimacy_reasoning,
+        "triage_reasoning": triage_reasoning,
+        "auto_decision_rationale": auto_rationale,
+        "rules_triggered": rules_triggered,
+        "risk_factors": risk_factors,
+        "draft_response_letter": draft_letter,
+        "refund_id": refund_id,
+        "refund_status": refund_status,
+        "disputed_amount_inr": amount,
+    }
 
 
 # ── Background processing ────────────────────────────────────────────
@@ -124,14 +224,36 @@ async def process_dispute_and_broadcast(
                 paused_node = graph_state.next[0] if graph_state.next else "unknown"
                 logger.info("Dispute %s paused at interrupt: %s", dispute_id, paused_node)
                 
-                await repo.update_status(dispute_id, "awaiting_review")
+                state_values = _safe_serialise(graph_state.values)
+                review_context = {
+                    "paused_node": paused_node,
+                    "recommended_action": state_values.get("recommended_action"),
+                    "gate_action": state_values.get("gate_action") or paused_node,
+                    "winnability_score": state_values.get("winnability_score"),
+                    "risk_factors": state_values.get("risk_factors") or [],
+                    "triage_reasoning": state_values.get("triage_reasoning"),
+                    "customer_legitimacy_signal": state_values.get("customer_legitimacy_signal"),
+                    "legitimacy_reasoning": state_values.get("legitimacy_reasoning"),
+                    "human_review_reason": state_values.get("human_review_reason"),
+                    "draft_summary": state_values.get("draft_summary"),
+                    "draft_response_letter": (
+                        state_values.get("draft_response_letter")
+                        or state_values.get("verified_explanation_letter")
+                        or state_values.get("draft_explanation_letter")
+                    ),
+                    "draft_explanation_letter": state_values.get("draft_explanation_letter"),
+                    "verified_explanation_letter": state_values.get("verified_explanation_letter"),
+                    "verification_report": state_values.get("verification_report"),
+                }
+                
+                await repo.update_status(dispute_id, "awaiting_review", review_context=review_context)
                 await repo.append_history(dispute_id, {
                     "event": "human_review_required",
                     "paused_node": paused_node,
+                    "data": review_context,
                 })
                 await session.commit()
                 
-                state_values = _safe_serialise(graph_state.values)
                 await manager.broadcast_system_event({
                     "event": "human_review_required",
                     "dispute_id": dispute_id,
@@ -143,6 +265,16 @@ async def process_dispute_and_broadcast(
                 state_values = _safe_serialise(graph_state.values) if graph_state else {}
                 gate_action = state_values.get("gate_action")
                 case_resolution = state_values.get("case_resolution")
+
+                # Specific granular outcome: auto_refund | auto_submit | accept_loss
+                outcome = gate_action if gate_action in ("auto_refund", "auto_submit", "accept_loss") else {
+                    "resolved_contested": "auto_submit",
+                    "resolved_refunded": "auto_refund",
+                    "resolved_accepted_loss": "accept_loss",
+                }.get(case_resolution or "", "open")
+
+                # Generate automated decision rationale & rule triggers
+                review_context = _build_auto_decision_explanation(state_values, gate_action, outcome)
 
                 final_status = "under_review" if case_resolution == "resolved_contested" else "resolved"
                 job_enqueued = False
@@ -161,12 +293,21 @@ async def process_dispute_and_broadcast(
                     except Exception as exc:
                         logger.exception("Failed to enqueue evidence job for dispute %s: %s", dispute_id, exc)
 
-                await repo.update_status(dispute_id, final_status, case_resolution=case_resolution)
+                await repo.update_status(
+                    dispute_id,
+                    final_status,
+                    case_resolution=case_resolution,
+                    outcome=outcome,
+                    gate_action=gate_action,
+                    review_context=review_context,
+                )
                 await repo.append_history(dispute_id, {
                     "event": "execution_completed",
                     "data": {
                         "gate_action": gate_action,
                         "case_resolution": case_resolution,
+                        "outcome": outcome,
+                        "review_context": review_context,
                     }
                 })
                 await session.commit()
@@ -181,16 +322,18 @@ async def process_dispute_and_broadcast(
                     "data": {
                         "gate_action": gate_action,
                         "case_resolution": case_resolution,
+                        "outcome": outcome,
+                        "review_context": review_context,
                     }
                 })
                 
-                outcome = {"resolved_contested": "won", "resolved_refunded": "lost", 
+                metrics_outcome = {"resolved_contested": "won", "resolved_refunded": "lost", 
                            "resolved_accepted_loss": "accepted_loss"}.get(case_resolution or "", "open")
                 
                 try:
                     await metrics_service.on_dispute_resolved(
                         dispute_id=dispute_id,
-                        outcome=outcome,
+                        outcome=metrics_outcome,
                         amount_paise=dispute_entity.amount or 0,
                     )
                 except Exception as m_exc:
@@ -273,9 +416,30 @@ async def resume_dispute_and_broadcast(
                     except Exception as exc:
                         logger.exception("Failed to enqueue evidence job for dispute %s: %s", dispute_id, exc)
 
+                # Determine granular outcome for post-review resolution
+                outcome = {
+                    "resolved_contested": "auto_submit",
+                    "resolved_refunded": "refund_review",
+                    "resolved_accepted_loss": "accept_loss",
+                }.get(case_resolution or "", "open")
+                # Preserve existing review context and append reviewer decision
+                dispute_obj = await repo.get_dispute(dispute_id)
+                post_review_ctx = dict(dispute_obj.review_context or {}) if dispute_obj and dispute_obj.review_context else {}
+                user_decision = state_values.get("user_decision") or {}
+                post_review_ctx.update({
+                    "gate_action": gate_action,
+                    "outcome": outcome,
+                    "reviewer_decision": user_decision.get("action"),
+                    "reviewer_note": user_decision.get("reason"),
+                })
+
                 await repo.update_status(
-                    dispute_id, final_status,
+                    dispute_id,
+                    final_status,
                     case_resolution=case_resolution,
+                    outcome=outcome,
+                    gate_action=gate_action,
+                    review_context=post_review_ctx,
                 )
                 
                 # 2. Inject the LangGraph decisions into the history log!
@@ -284,6 +448,8 @@ async def resume_dispute_and_broadcast(
                     "data": {
                         "gate_action": gate_action,
                         "case_resolution": case_resolution,
+                        "outcome": outcome,
+                        "review_context": post_review_ctx,
                     }
                 })
                 await session.commit()
@@ -299,6 +465,8 @@ async def resume_dispute_and_broadcast(
                 "data": {
                     "gate_action": gate_action,
                     "case_resolution": case_resolution,
+                    "outcome": outcome,
+                    "review_context": post_review_ctx,
                 }
             })
 
@@ -309,12 +477,12 @@ async def resume_dispute_and_broadcast(
                 dispute = await repo.get_dispute(dispute_id)
                 amt = dispute.amount_paise if dispute else 0
 
-            outcome = {"resolved_contested": "won", "resolved_refunded": "lost",
+            metrics_outcome = {"resolved_contested": "won", "resolved_refunded": "lost",
                        "resolved_accepted_loss": "accepted_loss"}.get(
                            case_resolution or "", "open")
             await metrics_service.on_dispute_resolved(
                 dispute_id=dispute_id,
-                outcome=outcome,
+                outcome=metrics_outcome,
                 amount_paise=amt or 0,
             )
 
@@ -418,6 +586,7 @@ async def receive_dispute_webhook(
     Returns **202 Accepted** immediately. Real-time progress is pushed
     to clients connected to ``/ws/dashboard``.
     """
+    t_start = time.perf_counter()
     raw_body = await request.body()
     signature = request.headers.get("X-Razorpay-Signature") or request.headers.get("x-razorpay-signature")
     secret = settings.razorpay_webhook_secret
@@ -429,6 +598,7 @@ async def receive_dispute_webhook(
             detail="Missing X-Razorpay-Signature header or secret not configured",
         )
 
+    t_sig_start = time.perf_counter()
     expected_sig = hmac.new(
         secret.encode("utf-8"),
         raw_body,
@@ -441,6 +611,7 @@ async def receive_dispute_webhook(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid webhook signature",
         )
+    t_sig_ms = (time.perf_counter() - t_sig_start) * 1000
 
     try:
         event = DisputeWebhookEvent.model_validate_json(raw_body)
@@ -470,6 +641,7 @@ async def receive_dispute_webhook(
     )
 
     # 0. Idempotency Check & Synchronous Persistence (Single DB Session)
+    t_db_start = time.perf_counter()
     async with async_session_factory() as session:
         repo = DisputeRepository(session)
         existing_dispute = await repo.get_dispute(dispute_id)
@@ -508,16 +680,20 @@ async def receive_dispute_webhook(
             phase=dispute_entity.phase,
             status="processing",
         )
+    t_db_ms = (time.perf_counter() - t_db_start) * 1000
 
     # 1. Trigger incremental daily metrics update in background
-    background_tasks.add_task(
-        metrics_service.on_dispute_ingested,
-        dispute_id=dispute_id,
-        webhook_payload=webhook_payload,
-        amount_paise=dispute_entity.amount,
+    t_bg_start = time.perf_counter()
+    asyncio.create_task(
+        metrics_service.on_dispute_ingested(
+            dispute_id=dispute_id,
+            webhook_payload=webhook_payload,
+            amount_paise=dispute_entity.amount,
+        )
     )
 
-    # 3. Broadcast dispute_received with FULL core fields so frontend never shows 'Unknown'
+    # 2. Broadcast dispute_received with FULL core fields so frontend never shows 'Unknown'
+    t_ws_start = time.perf_counter()
     now_iso = datetime.now(timezone.utc).isoformat()
     await manager.broadcast_system_event({
         "event": "dispute_received",
@@ -533,16 +709,25 @@ async def receive_dispute_webhook(
         "created_at": now_iso,
         "updated_at": now_iso,
     })
+    t_ws_ms = (time.perf_counter() - t_ws_start) * 1000
 
-    # 4. Offload the heavy LangGraph pipeline to a background task
-    background_tasks.add_task(
-        process_dispute_and_broadcast,
-        event,
-        dispute_id,
-        compiled_graph,
+    # 3. Offload the heavy LangGraph pipeline to a background task
+    asyncio.create_task(
+        process_dispute_and_broadcast(
+            event,
+            dispute_id,
+            compiled_graph,
+        )
+    )
+    t_bg_ms = (time.perf_counter() - t_bg_start) * 1000
+    t_total_ms = (time.perf_counter() - t_start) * 1000
+
+    logger.info(
+        "[WEBHOOK TIMING] dispute_id=%s | total=%.2fms | sig=%.2fms | db_upsert=%.2fms | ws_broadcast=%.2fms | bg_spawn=%.2fms",
+        dispute_id, t_total_ms, t_sig_ms, t_db_ms, t_ws_ms, t_bg_ms,
     )
 
-    # 5. Return immediately
+    # 4. Return immediately
     return {
         "dispute_id": dispute_id,
         "status": "accepted",
@@ -578,6 +763,11 @@ async def list_disputes(limit: int = 50):
             item.evidence_job_id = job.id
             item.evidence_job_status = job.status
             item.evidence_job_error = job.error_message
+        if not item.review_context and d.history:
+            for entry in reversed(d.history):
+                if isinstance(entry, dict) and entry.get("event") == "human_review_required" and entry.get("data"):
+                    item.review_context = entry.get("data")
+                    break
         items.append(item)
 
     return items
@@ -608,6 +798,11 @@ async def get_dispute(dispute_id: str):
         item.evidence_job_id = latest_job.id
         item.evidence_job_status = latest_job.status
         item.evidence_job_error = latest_job.error_message
+    if not item.review_context and dispute.history:
+        for entry in reversed(dispute.history):
+            if isinstance(entry, dict) and entry.get("event") == "human_review_required" and entry.get("data"):
+                item.review_context = entry.get("data")
+                break
     return item
 
 

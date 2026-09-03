@@ -11,6 +11,9 @@ enum DisputeStatus {
   humanReviewRequired,
   evidenceSubmitted,
   contestReadySandboxLimitation,
+  autoRefund,
+  refundReviewed,
+  contested,
   error,
   unknown,
 }
@@ -35,6 +38,8 @@ class Dispute {
     this.evidenceJobId,
     this.evidenceJobStatus,
     this.evidenceJobError,
+    this.reviewContext,
+    this.outcome,
   });
 
   final String id;
@@ -55,25 +60,47 @@ class Dispute {
   final int? evidenceJobId;
   final String? evidenceJobStatus;
   final String? evidenceJobError;
+  final Map<String, dynamic>? reviewContext;
+  final String? outcome;
 
   String get displayStatus {
     if (requiresHumanReview) {
       return 'Action Required: Manual Review';
     }
     return switch (status) {
+      DisputeStatus.autoRefund => 'Refunded (Auto)',
+      DisputeStatus.refundReviewed => 'Refunded (Reviewed)',
+      DisputeStatus.contested => 'Contested',
+      DisputeStatus.acceptedLoss => 'Accepted Loss',
+      DisputeStatus.contestReadySandboxLimitation => 'Contest Ready — Sandbox Limitation',
       DisputeStatus.processing => 'Processing',
-      DisputeStatus.awaitingReview => 'Awaiting Review',
+      DisputeStatus.awaitingReview => 'Action Required: Manual Review',
       DisputeStatus.resolved => 'Resolved',
       DisputeStatus.won => 'Won',
       DisputeStatus.lost => 'Lost',
-      DisputeStatus.acceptedLoss => 'Accepted Loss',
       DisputeStatus.paused => 'Paused',
       DisputeStatus.humanReviewRequired => 'Action Required: Manual Review',
-      DisputeStatus.evidenceSubmitted => 'Evidence Submitted',
-      DisputeStatus.contestReadySandboxLimitation => 'Contest Ready — Sandbox Limitation',
+      DisputeStatus.evidenceSubmitted => 'Contested',
       DisputeStatus.error => 'System Error',
       DisputeStatus.unknown => 'Unknown',
     };
+  }
+
+  String get displayOutcome {
+    if (requiresHumanReview) {
+      return 'Pending Review';
+    }
+    final normOutcome = (outcome ?? '').toLowerCase();
+    if (normOutcome == 'auto_refund') return 'Refunded (Auto)';
+    if (normOutcome == 'refund_review' || normOutcome == 'refund_reviewed') return 'Refunded (Reviewed)';
+    if (normOutcome == 'auto_submit' || normOutcome == 'contested' || normOutcome == 'human_review') {
+      if (evidenceJobStatus == 'contest_expected_failure' || status == DisputeStatus.contestReadySandboxLimitation) {
+        return 'Contest Ready — Sandbox Limitation';
+      }
+      return 'Contested';
+    }
+    if (normOutcome == 'accept_loss' || normOutcome == 'accepted_loss') return 'Accepted Loss';
+    return displayStatus;
   }
 
   String get workflowLabel => currentNode.toDisplayLabel();
@@ -109,7 +136,8 @@ class Dispute {
       respondBy = DateTime.tryParse(rawRespondBy.toString())?.toLocal();
     }
 
-    final statusText = _readString(json, const ['status', 'outcome', 'state'])?.toLowerCase();
+    final statusText = _readString(json, const ['status', 'state'])?.toLowerCase();
+    final rawOutcome = _readString(json, const ['outcome'])?.toLowerCase();
     final node = _readString(json, const ['current_node', 'node']);
     final reason =
         _readString(json, const ['reason', 'dispute_reason', 'reason_code']) ??
@@ -151,6 +179,28 @@ class Dispute {
       }
     }
 
+    // Extract persisted review context
+    Map<String, dynamic>? reviewContext;
+    if (json['review_context'] is Map) {
+      reviewContext = Map<String, dynamic>.from(json['review_context'] as Map);
+    }
+    if (reviewContext == null) {
+      for (var item in history.reversed) {
+        if (item is! Map) continue;
+        if (item['data'] is Map) {
+          final data = item['data'] as Map;
+          if (data['review_context'] is Map) {
+            reviewContext = Map<String, dynamic>.from(data['review_context'] as Map);
+            break;
+          }
+          if (item['event'] == 'human_review_required') {
+            reviewContext = Map<String, dynamic>.from(data);
+            break;
+          }
+        }
+      }
+    }
+
     bool requiresReview = _readBool(json, 'requires_human_review') ||
         statusText == 'awaiting_review' ||
         statusText == 'human_review_required';
@@ -169,26 +219,39 @@ class Dispute {
       }
     }
 
-    // Determine DisputeStatus based on true DB state & evidence worker progress
+    // Determine granular DisputeStatus
     DisputeStatus computedStatus;
     if (requiresReview) {
       computedStatus = DisputeStatus.humanReviewRequired;
+    } else if (rawOutcome == 'auto_refund') {
+      computedStatus = DisputeStatus.autoRefund;
+    } else if (rawOutcome == 'refund_review' || rawOutcome == 'refund_reviewed') {
+      computedStatus = DisputeStatus.refundReviewed;
+    } else if (rawOutcome == 'auto_submit' || rawOutcome == 'human_review' || rawOutcome == 'contested') {
+      if (evidenceJobStatus == 'contest_expected_failure') {
+        computedStatus = DisputeStatus.contestReadySandboxLimitation;
+      } else if (evidenceJobStatus == 'failed') {
+        computedStatus = DisputeStatus.error;
+      } else {
+        computedStatus = DisputeStatus.contested;
+      }
+    } else if (rawOutcome == 'accept_loss' || rawOutcome == 'accepted_loss') {
+      computedStatus = DisputeStatus.acceptedLoss;
     } else if (evidenceJobStatus == 'contest_expected_failure') {
+      // Only contest ready sandbox limitation if contest was the path
       computedStatus = DisputeStatus.contestReadySandboxLimitation;
     } else if (evidenceJobStatus == 'failed' || statusText == 'error') {
       computedStatus = DisputeStatus.error;
-    } else if (evidenceJobStatus == 'completed') {
-      computedStatus = DisputeStatus.evidenceSubmitted;
-    } else if (evidenceJobStatus == 'queued' || evidenceJobStatus == 'processing' || statusText == 'processing') {
-      computedStatus = DisputeStatus.processing;
     } else if (statusText == 'accepted_loss') {
       computedStatus = DisputeStatus.acceptedLoss;
     } else if (statusText == 'lost') {
       computedStatus = DisputeStatus.lost;
     } else if (statusText == 'won') {
       computedStatus = DisputeStatus.won;
-    } else if (statusText == 'under_review') {
-      computedStatus = DisputeStatus.evidenceSubmitted;
+    } else if (statusText == 'under_review' || evidenceJobStatus == 'completed') {
+      computedStatus = DisputeStatus.contested;
+    } else if (evidenceJobStatus == 'queued' || evidenceJobStatus == 'processing' || statusText == 'processing') {
+      computedStatus = DisputeStatus.processing;
     } else if (statusText == 'resolved') {
       computedStatus = DisputeStatus.resolved;
     } else {
@@ -219,6 +282,8 @@ class Dispute {
       evidenceJobId: evidenceJobId,
       evidenceJobStatus: evidenceJobStatus,
       evidenceJobError: evidenceJobError,
+      reviewContext: reviewContext,
+      outcome: rawOutcome,
     );
   }
   Dispute copyWith({
@@ -239,6 +304,8 @@ class Dispute {
     int? evidenceJobId,
     String? evidenceJobStatus,
     String? evidenceJobError,
+    Map<String, dynamic>? reviewContext,
+    String? outcome,
   }) {
     return Dispute(
       id: id,
@@ -259,6 +326,8 @@ class Dispute {
       evidenceJobId: evidenceJobId ?? this.evidenceJobId,
       evidenceJobStatus: evidenceJobStatus ?? this.evidenceJobStatus,
       evidenceJobError: evidenceJobError ?? this.evidenceJobError,
+      reviewContext: reviewContext ?? this.reviewContext,
+      outcome: outcome ?? this.outcome,
     );
   }
 
@@ -287,6 +356,8 @@ class Dispute {
       evidenceJobId: next.evidenceJobId ?? evidenceJobId,
       evidenceJobStatus: next.evidenceJobStatus ?? evidenceJobStatus,
       evidenceJobError: next.evidenceJobError ?? evidenceJobError,
+      reviewContext: next.reviewContext ?? reviewContext,
+      outcome: next.outcome ?? outcome,
     );
   }
 
