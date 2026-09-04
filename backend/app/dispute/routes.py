@@ -12,25 +12,40 @@ Endpoints:
 import asyncio
 import hashlib
 import hmac
+import json
 import logging
+import random
 import time
-from datetime import datetime, timezone
+import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from sqlalchemy import text
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
 from fastapi.responses import JSONResponse
+from httpx import ASGITransport, AsyncClient
 
 from app.core.config import settings
 from app.core.db import async_session_factory
 from app.dispute.dispute_repository import DisputeRepository
 from app.dispute.metrics_repository import MetricsRepository
+from app.dispute.repository import EvidenceRepository
+from app.dispute.models import (
+    CustomerCommunication,
+    Dispute,
+    Order,
+    RiskSignal,
+    ShippingLog,
+)
 from app.dispute.schemas.review import DisputeListItem, ReviewDecision
+from app.dispute.schemas.test_dispute import (
+    CreateTestDisputeRequest,
+    CreateTestDisputeResponse,
+)
 from app.dispute.schemas.webhook import DisputeWebhookEvent
 from app.dispute.service import dispute_service
 from app.dispute.websocket import manager
 from app.dispute import metrics_service
-from app.dispute.models import Dispute
 from app.dispute.submission import submit_dispute_evidence
 
 logger = logging.getLogger(__name__)
@@ -161,7 +176,15 @@ async def process_dispute_and_broadcast(
     event: DisputeWebhookEvent,
     dispute_id: str,
     compiled_graph,
+    spawn_time: float | None = None,
 ) -> None:
+    t_bg_init_start = time.perf_counter()
+    spawn_delay_ms = ((t_bg_init_start - spawn_time) * 1000) if spawn_time else 0.0
+    logger.info(
+        "[STAGE 6: background task started] dispute_id=%s | spawn_delay=%.2fms",
+        dispute_id,
+        spawn_delay_ms,
+    )
     config = _make_config(dispute_id)
     dispute_entity = event.payload.dispute.entity
 
@@ -174,6 +197,101 @@ async def process_dispute_and_broadcast(
             if (phase in ("chargeback", "contested") and existing.status in ("under_review", "resolved")) or existing.document_id:
                 logger.info("Dispute already processed: %s", dispute_id)
                 return
+
+    # ── Strict Defense-Only Failsafe ──────────────────────────────────
+    # If the payment_id or order_id does NOT exist in our local PostgreSQL database,
+    # immediately bypass the LangGraph AI agent and route the dispute to a Manual Review state
+    # with full context stating that insufficient data is available to solve this case.
+    payment_entity = event.payload.payment.entity
+    order_id = payment_entity.order_id
+    payment_id = payment_entity.id
+
+    async with async_session_factory() as session:
+        ev_repo = EvidenceRepository(session)
+        merchant_order = None
+        if order_id:
+            merchant_order = await ev_repo.get_order_by_id(order_id)
+        if merchant_order is None and payment_id:
+            merchant_order = await ev_repo.get_order_by_payment_id(payment_id)
+
+    if merchant_order is None:
+        logger.warning(
+            "[DEFENSE-ONLY FAILSAFE TRIGGERED] Dispute %s (order_id=%s, payment_id=%s) not found in merchant database. "
+            "Bypassing AI agent and routing to Manual Review.",
+            dispute_id,
+            order_id,
+            payment_id,
+        )
+        amount_inr = (dispute_entity.amount or 0) // 100
+        review_context = {
+            "decision_type": "manual_review_required",
+            "paused_node": "manual_review",
+            "gate_action": "manual_review",
+            "recommended_action": "manual_review",
+            "winnability_score": 0.0,
+            "risk_factors": [
+                "missing_order_record",
+                "unverified_payment_id",
+                "no_merchant_evidence",
+            ],
+            "triage_reasoning": (
+                f"⚠️ Strict Defense-Only Failsafe: Neither order_id ('{order_id}') nor payment_id ('{payment_id}') "
+                f"exists in the local PostgreSQL database. Automated AI triage has been bypassed to prevent blind refunds. "
+                f"Not enough data is available to solve this case."
+            ),
+            "customer_legitimacy_signal": False,
+            "legitimacy_reasoning": (
+                "Cannot assess customer legitimacy: No order or payment records exist in merchant database."
+            ),
+            "human_review_reason": (
+                "Missing Merchant Records: This system cannot solve this dispute because neither the order_id nor payment_id exists in the local PostgreSQL database. "
+                "Not enough data is available to solve this case — no automated options available."
+            ),
+            "draft_summary": (
+                "Merchant records missing from database. Automated AI processing and auto-refunds bypassed."
+            ),
+            "draft_response_letter": (
+                "UNABLE TO GENERATE REPRESENTMENT EVIDENCE:\n"
+                "-----------------------------------------\n"
+                f"The disputed transaction (Order: {order_id}, Payment: {payment_id}) could not be located in the merchant's local PostgreSQL database.\n\n"
+                "Defense-Only Failsafe Notice:\n"
+                "• AI Agent execution was bypassed.\n"
+                "• Blind auto-refunds were blocked.\n"
+                "• Not enough data is available to solve this dispute automatically.\n"
+                "• Operator manual review required."
+            ),
+            "rules_triggered": [
+                "Strict Defense-Only Failsafe: Unmatched payment_id / order_id bypassed AI agent",
+                "Automated refunds strictly blocked for unverified merchant records",
+                "Dispute routed to Manual Review — insufficient evidence for automated resolution",
+            ],
+            "disputed_amount_inr": amount_inr,
+            "unmatched_records_failsafe": True,
+        }
+
+        async with async_session_factory() as session:
+            repo = DisputeRepository(session)
+            await repo.update_status(
+                dispute_id,
+                "awaiting_review",
+                review_context=review_context,
+                gate_action="manual_review",
+                outcome="manual_review",
+            )
+            await repo.append_history(dispute_id, {
+                "event": "defense_only_failsafe_triggered",
+                "reason": "Missing order/payment in local database — AI agent bypassed to manual review",
+                "data": review_context,
+            })
+            await session.commit()
+
+        await manager.broadcast_system_event({
+            "event": "human_review_required",
+            "dispute_id": dispute_id,
+            "paused_node": "manual_review",
+            "data": review_context,
+        })
+        return
 
     try:
         # ==========================================
@@ -555,17 +673,317 @@ async def reset_system_database():
         """))
         await session.commit()
 
-    # 2. Broadcast the reset event to connected Flutter clients
+    # 2. Resiliently purge evidence PDF files from Supabase Storage
+    purged_files = 0
+    try:
+        from app.core.storage import storage_service
+        purged_files = await storage_service.purge_evidence_bucket()
+    except Exception as exc:
+        logger.warning("Supabase storage bucket cleanup failed during reset (non-fatal): %s", exc)
+
+    # 3. Broadcast the reset event to connected Flutter clients
     await manager.broadcast_system_event({
         "event": "database_reset",
         "action": "refresh_ui",
     })
 
-    # 3. Return success response
+    # 4. Return success response
     return {
         "status": "success",
-        "message": "Database wiped and frontend refresh triggered."
+        "message": "Database and storage wiped; frontend refresh triggered.",
+        "purged_storage_files": purged_files,
     }
+
+
+@router.post(
+    "/dev/create-test-dispute",
+    status_code=status.HTTP_201_CREATED,
+    tags=["admin", "dev"],
+    summary="Construct synthetic dispute scenario, insert evidence rows, and dispatch HMAC webhook",
+    response_model=CreateTestDisputeResponse,
+)
+async def create_test_dispute(
+    body: CreateTestDisputeRequest,
+    request: Request,
+):
+    """
+    Developer Option: Creates synthetic evidence records in PostgreSQL (orders,
+    shipping_logs, customer_communications, risk_signals), generates a signed
+    Razorpay payment.dispute.created webhook payload, and POSTs it directly
+    to /api/v1/webhook so that the live agent pipeline ingests and executes it.
+    """
+    suffix = uuid.uuid4().hex[:8].lower()
+    order_id = f"ORD_SIM_{suffix.upper()}"
+    payment_id = f"pay_sim_{suffix}"
+    dispute_id = f"disp_sim_{suffix}"
+    ticket_id = f"TCK_SIM_{suffix[:6].upper()}"
+
+    amount_inr = int(body.amount_inr)
+    amount_paise = amount_inr * 100
+    item_description = (body.item_description or "").strip() or "Wireless Noise-Canceling Headphones"
+
+    # Map Delivery Status & Auto-Generate Realistic Logistics Data
+    delivery_status_norm = (body.delivery_status or "").strip().lower()
+    now = datetime.now(timezone.utc)
+
+    if "signed" in delivery_status_norm:
+        db_delivery_status = "Delivered"
+        signed_by = "Self (OTP Verified)"
+        courier_partner, prefix = random.choice([
+            ("Delhivery", "DEL"),
+            ("BlueDart", "BLU"),
+            ("DTDC", "DTC"),
+            ("Shadowfax", "SFX"),
+        ])
+        tracking_id = f"TRK_{prefix}_{suffix.upper()}"
+        delivery_timestamp = now - timedelta(days=2)
+    elif "no signature" in delivery_status_norm or "door" in delivery_status_norm:
+        db_delivery_status = "Delivered"
+        signed_by = "Left at Door (No Signature)"
+        courier_partner, prefix = random.choice([
+            ("BlueDart", "BLU"),
+            ("Ekart", "EKP"),
+            ("Delhivery", "DEL"),
+        ])
+        tracking_id = f"TRK_{prefix}_{suffix.upper()}"
+        delivery_timestamp = now - timedelta(days=2)
+    elif "lost" in delivery_status_norm:
+        db_delivery_status = "Lost_In_Transit"
+        signed_by = None
+        courier_partner, prefix = random.choice([
+            ("Delhivery", "DEL"),
+            ("DTDC", "DTC"),
+            ("BlueDart", "BLU"),
+        ])
+        tracking_id = f"TRK_{prefix}_{suffix.upper()}"
+        delivery_timestamp = None
+    elif "in transit" in delivery_status_norm or delivery_status_norm == "in_transit" or delivery_status_norm == "transit":
+        db_delivery_status = "In_Transit"
+        signed_by = None
+        courier_partner, prefix = random.choice([
+            ("Ekart", "EKP"),
+            ("Delhivery", "DEL"),
+            ("Xpressbees", "XPB"),
+        ])
+        tracking_id = f"TRK_{prefix}_{suffix.upper()}"
+        delivery_timestamp = None
+    else:
+        db_delivery_status = "Delivered"
+        signed_by = "Self (OTP Verified)"
+        courier_partner = "Delhivery"
+        tracking_id = f"TRK_DEL_{suffix.upper()}"
+        delivery_timestamp = now - timedelta(days=2)
+
+    # Map Customer Communication
+    comm_norm = (body.customer_communication or "").strip().lower()
+    insert_comm = False
+    comm_channel = "Email"
+    comm_transcript = ""
+
+    if "confirms" in comm_norm or "confirm" in comm_norm:
+        insert_comm = True
+        comm_channel = "Email"
+        comm_transcript = (
+            f"Customer: I received the {item_description} in good condition and tested it. Everything works great, thank you!\n"
+            f"Support: Glad to hear that! Enjoy your purchase and feel free to reach out if you have any questions."
+        )
+    elif "disputes" in comm_norm or "dispute" in comm_norm:
+        insert_comm = True
+        comm_channel = "WhatsApp"
+        comm_transcript = (
+            f"Customer: Tracking status says delivered yesterday, but I have not received the package at my address. Please check.\n"
+            f"Support: We apologize for the issue. We have escalated this to our logistics partner {courier_partner} to investigate."
+        )
+
+    # Map Risk Signals & Telemetry
+    is_2fa = bool(body.is_2fa_verified)
+    account_age = max(0, int(body.account_age_days))
+    if is_2fa:
+        ip_addr = random.choice([
+            "106.51.20.44 (Pune, MH)",
+            "117.201.4.12 (Mumbai, MH)",
+            "203.192.11.7 (Chennai, TN)",
+            "49.36.2.11 (Bengaluru, KA)",
+            "122.161.48.90 (Delhi, DL)",
+            "14.139.128.5 (Hyderabad, TS)",
+            "115.240.90.12 (Kolkata, WB)",
+            "157.34.122.8 (Ahmedabad, GJ)",
+        ])
+        device = random.choice([
+            "iPhone 15 Pro (iOS 17.5 / Mobile Safari)",
+            "Samsung Galaxy S24 Ultra (Android 14 / Chrome 128.0)",
+            "MacBook Pro 16\" (macOS Sonoma / Chrome 128.0)",
+            "Windows 11 Pro Desktop (Windows NT 10.0 / Edge 128.0)",
+            "MacBook Air M2 (macOS Sequoia / Safari 18.0)",
+            "OnePlus 12 (Android 14 / Chrome Mobile 128.0)",
+        ])
+        customer_name = random.choice([
+            "priya.sharma",
+            "rahul.mehta",
+            "aditya.verma",
+            "ananya.iyer",
+            "rohit.kumar",
+            "sneha.patel",
+            "vikram.singh",
+        ])
+        domain = random.choice(["gmail.com", "outlook.com", "yahoo.com"])
+        customer_email = f"{customer_name}.{suffix[:4]}@{domain}"
+    else:
+        ip_addr = random.choice([
+            "45.115.87.33 (Unknown Region - VPN Exit)",
+            "89.187.162.5 (Unknown Region - Tor Node)",
+            "185.220.101.4 (Frankfurt, DE - Datacenter Proxy)",
+            "194.26.29.112 (Amsterdam, NL - Hosting IP)",
+        ])
+        device = random.choice([
+            "Android Generic Emulator / Chrome 91.0.4472",
+            "Linux x86_64 / HeadlessChrome 119.0.6045",
+            "Tor Browser 13.5 (Firefox 115.12.0esr)",
+            "Unknown Device / Python-requests 2.31",
+        ])
+        customer_email = f"user_{suffix[:4]}@protonmail.com"
+
+    # 1. Insert synthetic merchant evidence records into database
+    async with async_session_factory() as session:
+        # Order
+        order = Order(
+            order_id=order_id,
+            payment_id=payment_id,
+            customer_email=customer_email,
+            amount_inr=amount_inr,
+            item_description=item_description,
+            created_at=now - timedelta(days=5),
+        )
+        session.add(order)
+        await session.flush()
+
+        # Shipping Log
+        shipping = ShippingLog(
+            tracking_id=tracking_id,
+            order_id=order_id,
+            courier_partner=courier_partner,
+            delivery_status=db_delivery_status,
+            signed_by=signed_by,
+            delivery_timestamp=delivery_timestamp,
+        )
+        session.add(shipping)
+
+        # Customer Communication (if applicable)
+        if insert_comm:
+            comm = CustomerCommunication(
+                ticket_id=ticket_id,
+                order_id=order_id,
+                channel=comm_channel,
+                message_transcript=comm_transcript,
+                logged_at=now - timedelta(days=1),
+            )
+            session.add(comm)
+
+        # Risk Signal
+        risk = RiskSignal(
+            order_id=order_id,
+            ip_address=ip_addr,
+            device_fingerprint=device,
+            is_2fa_verified=is_2fa,
+            account_age_days=account_age,
+        )
+        session.add(risk)
+
+        await session.commit()
+
+    logger.info(
+        "[DEV SCENARIO CREATED] Inserted synthetic order=%s, payment=%s into merchant database.",
+        order_id,
+        payment_id,
+    )
+
+    # 2. Construct authentic Razorpay payment.dispute.created webhook JSON payload
+    now_ts = int(time.time())
+    reason_code = (body.reason_code or "").strip() or "product_not_received"
+
+    webhook_payload = {
+        "entity": "event",
+        "account_id": "acc_CFvOKjkTwf3GQy",
+        "event": "payment.dispute.created",
+        "contains": ["payment", "dispute"],
+        "payload": {
+            "payment": {
+                "entity": {
+                    "id": payment_id,
+                    "entity": "payment",
+                    "amount": amount_paise,
+                    "currency": "INR",
+                    "base_amount": amount_paise,
+                    "status": "captured",
+                    "order_id": order_id,
+                    "email": customer_email,
+                    "contact": "+919876543210",
+                    "method": "card",
+                    "amount_refunded": 0,
+                    "created_at": now_ts - 86400 * 5,
+                }
+            },
+            "dispute": {
+                "entity": {
+                    "id": dispute_id,
+                    "entity": "dispute",
+                    "payment_id": payment_id,
+                    "amount": amount_paise,
+                    "currency": "INR",
+                    "amount_deducted": 0,
+                    "reason_code": reason_code,
+                    "respond_by": now_ts + 86400 * 5,
+                    "status": "open",
+                    "phase": "chargeback",
+                    "created_at": now_ts,
+                }
+            },
+        },
+        "created_at": now_ts,
+    }
+
+    # 3. Sign internally using own RAZORPAY_WEBHOOK_SECRET
+    payload_bytes = json.dumps(webhook_payload).encode("utf-8")
+    secret = settings.razorpay_webhook_secret
+    sig = hmac.new(secret.encode("utf-8"), payload_bytes, hashlib.sha256).hexdigest()
+
+    # 4. POST to /api/v1/webhook through full signature verification
+    async with AsyncClient(
+        transport=ASGITransport(app=request.app),
+        base_url="http://testserver",
+    ) as client:
+        webhook_resp = await client.post(
+            "/api/v1/webhook",
+            content=payload_bytes,
+            headers={
+                "Content-Type": "application/json",
+                "X-Razorpay-Signature": sig,
+            },
+        )
+
+    if webhook_resp.status_code not in (status.HTTP_200_OK, status.HTTP_202_ACCEPTED):
+        logger.error(
+            "Failed to dispatch internal test dispute webhook: status=%s response=%s",
+            webhook_resp.status_code,
+            webhook_resp.text,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Webhook dispatch failed with status {webhook_resp.status_code}: {webhook_resp.text}",
+        )
+
+    logger.info(
+        "[DEV SCENARIO DISPATCHED] Webhook for dispute=%s accepted by pipeline.",
+        dispute_id,
+    )
+
+    return CreateTestDisputeResponse(
+        status="success",
+        dispute_id=dispute_id,
+        order_id=order_id,
+        payment_id=payment_id,
+        message="Test dispute scenario created and dispatched to webhook pipeline.",
+    )
 
 
 @router.post(
@@ -587,6 +1005,8 @@ async def receive_dispute_webhook(
     to clients connected to ``/ws/dashboard``.
     """
     t_start = time.perf_counter()
+    logger.info("[STAGE 1: request received] Webhook HTTP POST received at /api/v1/webhook")
+
     raw_body = await request.body()
     signature = request.headers.get("X-Razorpay-Signature") or request.headers.get("x-razorpay-signature")
     secret = settings.razorpay_webhook_secret
@@ -612,6 +1032,7 @@ async def receive_dispute_webhook(
             detail="Invalid webhook signature",
         )
     t_sig_ms = (time.perf_counter() - t_sig_start) * 1000
+    logger.info("[STAGE 2: signature verified] HMAC-SHA256 signature verified | duration=%.2fms", t_sig_ms)
 
     try:
         event = DisputeWebhookEvent.model_validate_json(raw_body)
@@ -640,34 +1061,11 @@ async def receive_dispute_webhook(
         else None
     )
 
-    # 0. Idempotency Check & Synchronous Persistence (Single DB Session)
+    # 0. Single-Statement Atomic Upsert & Idempotency Check (Single DB Session, Single Round-trip)
     t_db_start = time.perf_counter()
     async with async_session_factory() as session:
         repo = DisputeRepository(session)
-        existing_dispute = await repo.get_dispute(dispute_id)
-        if existing_dispute:
-            phase = (existing_dispute.phase or "").lower()
-            if phase in ("chargeback", "contested") or existing_dispute.document_id:
-                logger.info("Dispute already processed: %s", dispute_id)
-                return JSONResponse(
-                    status_code=status.HTTP_200_OK,
-                    content={
-                        "status": "already_processed",
-                        "dispute_id": dispute_id,
-                        "message": "Dispute already processed",
-                    },
-                )
-
-        compiled_graph = _get_graph(request)
-
-        metrics_repo = MetricsRepository(session)
-        await metrics_repo.record_event(
-            dispute_id=dispute_id,
-            event_type="webhook_received",
-            payload=webhook_payload,
-        )
-
-        await repo.create_or_update_dispute(
+        dispute, is_new_insert = await repo.create_or_update_dispute(
             dispute_id=dispute_id,
             webhook_payload=webhook_payload,
             amount_paise=dispute_entity.amount,
@@ -681,9 +1079,33 @@ async def receive_dispute_webhook(
             status="processing",
         )
     t_db_ms = (time.perf_counter() - t_db_start) * 1000
+    logger.info(
+        "[STAGE 3 & 4: atomic upsert & idempotency check (single query)] dispute_id=%s | is_new=%s | duration=%.2fms",
+        dispute_id,
+        is_new_insert,
+        t_db_ms,
+    )
 
-    # 1. Trigger incremental daily metrics update in background
-    t_bg_start = time.perf_counter()
+    # 1. If this is a duplicate/retried webhook, inspect phase/document_id/status and return 200 OK immediately
+    if not is_new_insert:
+        phase = (dispute.phase or "").lower()
+        logger.info(
+            "Duplicate webhook received for dispute %s (phase=%s, document_id=%s, status=%s) — skipping background processing",
+            dispute_id,
+            dispute.phase,
+            dispute.document_id,
+            dispute.status,
+        )
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "status": "already_processed",
+                "dispute_id": dispute_id,
+                "message": "Dispute already processed",
+            },
+        )
+
+    # 2. Trigger incremental daily metrics update + event logging in background ONLY for genuinely new disputes
     asyncio.create_task(
         metrics_service.on_dispute_ingested(
             dispute_id=dispute_id,
@@ -692,8 +1114,7 @@ async def receive_dispute_webhook(
         )
     )
 
-    # 2. Broadcast dispute_received with FULL core fields so frontend never shows 'Unknown'
-    t_ws_start = time.perf_counter()
+    # 3. Broadcast dispute_received with FULL core fields so frontend never shows 'Unknown'
     now_iso = datetime.now(timezone.utc).isoformat()
     await manager.broadcast_system_event({
         "event": "dispute_received",
@@ -709,25 +1130,33 @@ async def receive_dispute_webhook(
         "created_at": now_iso,
         "updated_at": now_iso,
     })
-    t_ws_ms = (time.perf_counter() - t_ws_start) * 1000
 
-    # 3. Offload the heavy LangGraph pipeline to a background task
+    # 4. Offload the heavy LangGraph pipeline to a background task
+    compiled_graph = _get_graph(request)
+    t_spawn_time = time.perf_counter()
     asyncio.create_task(
         process_dispute_and_broadcast(
             event,
             dispute_id,
             compiled_graph,
+            spawn_time=t_spawn_time,
         )
     )
-    t_bg_ms = (time.perf_counter() - t_bg_start) * 1000
+
     t_total_ms = (time.perf_counter() - t_start) * 1000
 
     logger.info(
-        "[WEBHOOK TIMING] dispute_id=%s | total=%.2fms | sig=%.2fms | db_upsert=%.2fms | ws_broadcast=%.2fms | bg_spawn=%.2fms",
-        dispute_id, t_total_ms, t_sig_ms, t_db_ms, t_ws_ms, t_bg_ms,
+        "[STAGE 5: response sent] dispute_id=%s | status=202_accepted | total_time_to_respond=%.2fms",
+        dispute_id,
+        t_total_ms,
     )
 
-    # 4. Return immediately
+    logger.info(
+        "[WEBHOOK STAGE TIMING SUMMARY] dispute_id=%s | total_roundtrip=%.2fms | stage_2_sig=%.2fms | stage_3_4_atomic_upsert=%.2fms | stage_5_resp=%.2fms",
+        dispute_id, t_total_ms, t_sig_ms, t_db_ms, t_total_ms,
+    )
+
+    # 5. Return immediately
     return {
         "dispute_id": dispute_id,
         "status": "accepted",
@@ -942,6 +1371,100 @@ async def review_dispute(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Dispute {dispute_id} is not awaiting review (status={dispute.status}).",
         )
+
+    # 2. Check if this is a Defense-Only Failsafe dispute (bypassed from LangGraph)
+    is_failsafe_bypassed = bool(
+        dispute.review_context
+        and (
+            dispute.review_context.get("unmatched_records_failsafe")
+            or dispute.review_context.get("paused_node") == "manual_review"
+            or dispute.review_context.get("gate_action") == "manual_review"
+        )
+    )
+
+    if is_failsafe_bypassed:
+        action_norm = (decision.action or "").lower()
+        if action_norm in ("reject", "accept_loss"):
+            case_resolution = "resolved_accepted_loss"
+            outcome = "accept_loss"
+            final_status = "resolved"
+        elif action_norm in ("refund", "approve_refund") or (action_norm == "accept" and dispute.review_context.get("recommended_action") == "refund_customer"):
+            case_resolution = "resolved_refunded"
+            outcome = "refund_review"
+            final_status = "resolved"
+        else:
+            case_resolution = "resolved_accepted_loss" if action_norm in ("reject", "accept_loss") else "resolved_contested"
+            outcome = "accept_loss" if action_norm in ("reject", "accept_loss") else "manual_review"
+            final_status = "resolved" if action_norm in ("reject", "accept_loss") else "under_review"
+
+        post_review_ctx = dict(dispute.review_context or {})
+        post_review_ctx.update({
+            "gate_action": outcome,
+            "outcome": outcome,
+            "case_resolution": case_resolution,
+            "reviewer_decision": decision.action,
+            "reviewer_note": decision.reason,
+        })
+
+        async with async_session_factory() as session:
+            repo = DisputeRepository(session)
+            await repo.update_status(
+                dispute_id,
+                final_status,
+                case_resolution=case_resolution,
+                outcome=outcome,
+                gate_action=outcome,
+                review_context=post_review_ctx,
+            )
+            await repo.append_history(dispute_id, {
+                "event": "human_review_submitted",
+                "action": decision.action,
+                "reason": decision.reason,
+                "paused_node": "manual_review",
+            })
+            await repo.append_history(dispute_id, {
+                "event": "execution_completed_after_review",
+                "data": {
+                    "gate_action": outcome,
+                    "case_resolution": case_resolution,
+                    "outcome": outcome,
+                    "review_context": post_review_ctx,
+                }
+            })
+            await session.commit()
+
+        await manager.broadcast_system_event({
+            "event": "execution_completed",
+            "dispute_id": dispute_id,
+            "data": {
+                "gate_action": outcome,
+                "case_resolution": case_resolution,
+                "outcome": outcome,
+                "review_context": post_review_ctx,
+            }
+        })
+
+        metrics_outcome = {
+            "resolved_contested": "won",
+            "resolved_refunded": "lost",
+            "resolved_accepted_loss": "accepted_loss",
+        }.get(case_resolution, "open")
+
+        try:
+            await metrics_service.on_dispute_resolved(
+                dispute_id=dispute_id,
+                outcome=metrics_outcome,
+                amount_paise=dispute.amount_paise or 0,
+            )
+        except Exception as m_exc:
+            logger.warning("Metrics update failed for dispute %s: %s", dispute_id, m_exc)
+
+        return {
+            "dispute_id": dispute_id,
+            "status": final_status,
+            "action": decision.action,
+            "message": f"Review recorded for failsafe dispute: {outcome}.",
+        }
 
     # 2. Determine which node is paused
     graph_state = await compiled_graph.aget_state(config)

@@ -1,0 +1,14 @@
+{
+  "total_requests": 20,
+  "success_202": 20,
+  "batch_duration_ms": 7246.45,
+  "throughput_req_sec": 2.76,
+  "min_ms": 2179.42,
+  "max_ms": 3866.94,
+  "mean_ms": 2837.28,
+  "median_ms": 2761.6,
+  "stdev_ms": 437.32,
+  "p90_ms": 3569.74,
+  "p95_ms": 3866.94,
+  "max_to_mean_ratio": 1.36
+}

@@ -1,0 +1,14 @@
+{
+  "total_requests": 20,
+  "concurrency": 10,
+  "success_count": 20,
+  "total_batch_duration_ms": 9282.76,
+  "throughput_rps": 2.15,
+  "latency_min_ms": 2918.65,
+  "latency_mean_ms": 3918.5,
+  "latency_median_p50_ms": 3446.83,
+  "latency_max_ms": 5804.47,
+  "latency_stdev_ms": 903.68,
+  "latency_variance": 816628.63,
+  "max_to_mean_ratio": 1.48
+}

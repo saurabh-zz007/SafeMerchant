@@ -12,7 +12,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import literal_column, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -57,13 +57,15 @@ class DisputeRepository:
         order_id: Optional[str] = None,
         phase: Optional[str] = None,
         status: str = "processing",
-    ) -> Dispute:
+    ) -> tuple[Dispute, bool]:
         """
         Atomically insert a new dispute record or update an existing one on conflict.
 
         The raw webhook payload is stored in the ``history`` JSONB array.
         Uses PostgreSQL ON CONFLICT DO UPDATE to guarantee idempotency and avoid
         race conditions under concurrent load.
+        Returns a tuple of (Dispute, is_new_insert) where is_new_insert is True
+        if this was a newly inserted row (xmax = 0), and False if it updated an existing row.
         """
         now = datetime.now(timezone.utc)
         history_entry = {
@@ -106,14 +108,19 @@ class DisputeRepository:
                 "updated_by": "system",
                 "history": Dispute.history.concat(stmt.excluded.history),
             },
-        ).returning(Dispute)
+        ).returning(Dispute, literal_column("xmax = 0").label("is_new_insert"))
 
         result = await self._session.execute(stmt)
-        dispute = result.scalar_one()
+        dispute, is_new_insert = result.one()
         await self._session.commit()
 
-        logger.info("Upserted dispute record: %s (status=%s)", dispute_id, dispute.status)
-        return dispute
+        logger.info(
+            "Upserted dispute record: %s (status=%s, is_new_insert=%s)",
+            dispute_id,
+            dispute.status,
+            is_new_insert,
+        )
+        return dispute, bool(is_new_insert)
 
     # Backward-compatible alias
     create_dispute = create_or_update_dispute

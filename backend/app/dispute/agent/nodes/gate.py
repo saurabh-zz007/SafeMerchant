@@ -54,8 +54,12 @@ def gate_decision(state: DisputeAgentState) -> str:
     )
 
     decision: str
+    # Defense-only failsafe: No evidence bundle present
+    if state.get("evidence_bundle") is None or state.get("unmatched_records_failsafe"):
+        decision = "human_review" if recommended != "accept_loss" else "accept_loss"
+
     # Accept loss — no point contesting
-    if recommended == "accept_loss" or (not legitimacy and score < 0.3):
+    elif recommended == "accept_loss" or (not legitimacy and score < 0.3):
         decision = "accept_loss"
 
     # Refund path — customer is right, bounded by amount gate

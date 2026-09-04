@@ -85,7 +85,6 @@ def _sign_payload(payload_bytes: bytes, secret: str) -> str:
 
 
 @patch("app.dispute.routes.metrics_service.on_dispute_ingested", new_callable=AsyncMock)
-@patch("app.dispute.routes.MetricsRepository")
 @patch("app.dispute.routes.DisputeRepository")
 @patch("app.dispute.routes.async_session_factory")
 @patch("app.dispute.routes.process_dispute_and_broadcast", new_callable=AsyncMock)
@@ -97,19 +96,19 @@ async def test_webhook_valid_signature(
     mock_process_task,
     mock_session_factory,
     mock_dispute_repo_cls,
-    mock_metrics_repo_cls,
     mock_metrics_ingested,
 ):
     mock_get_graph.return_value = MagicMock()
     mock_session = AsyncMock()
     mock_session_factory.return_value.__aenter__.return_value = mock_session
+    mock_dispute = MagicMock(spec=Dispute)
+    mock_dispute.id = "disp_EsIAlDcoUr8CaQ"
+    mock_dispute.phase = "chargeback"
+    mock_dispute.status = "processing"
+    mock_dispute.document_id = None
     mock_repo = MagicMock()
-    mock_repo.get_dispute = AsyncMock(return_value=None)
-    mock_repo.create_or_update_dispute = AsyncMock()
+    mock_repo.create_or_update_dispute = AsyncMock(return_value=(mock_dispute, True))
     mock_dispute_repo_cls.return_value = mock_repo
-    mock_metrics_repo = MagicMock()
-    mock_metrics_repo.record_event = AsyncMock()
-    mock_metrics_repo_cls.return_value = mock_metrics_repo
 
     payload = _build_valid_payload()
     payload_bytes = json.dumps(payload).encode("utf-8")
@@ -151,7 +150,7 @@ async def test_webhook_idempotency_already_processed_phase(
     existing_dispute.status = "under_review"
 
     mock_repo = MagicMock()
-    mock_repo.get_dispute = AsyncMock(return_value=existing_dispute)
+    mock_repo.create_or_update_dispute = AsyncMock(return_value=(existing_dispute, False))
     mock_dispute_repo_cls.return_value = mock_repo
 
     payload = _build_valid_payload()
@@ -195,7 +194,7 @@ async def test_webhook_idempotency_already_processed_document_id(
     existing_dispute.status = "resolved"
 
     mock_repo = MagicMock()
-    mock_repo.get_dispute = AsyncMock(return_value=existing_dispute)
+    mock_repo.create_or_update_dispute = AsyncMock(return_value=(existing_dispute, False))
     mock_dispute_repo_cls.return_value = mock_repo
 
     payload = _build_valid_payload()

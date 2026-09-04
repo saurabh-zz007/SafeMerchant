@@ -1,13 +1,13 @@
 """
 Metrics background service.
 
-Orchestrates incremental and full metric updates, breakdown refreshes,
-and websocket invalidation signals.  All heavy work runs as a
-``BackgroundTasks`` callable — never in the request path.
+Orchestrates incremental daily metric updates, periodic breakdown refreshes,
+and websocket invalidation signals.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import date, datetime, timezone
 from typing import Optional
@@ -24,11 +24,11 @@ async def on_dispute_ingested(
     webhook_payload: dict,
     amount_paise: Optional[int] = None,
 ) -> None:
-    """Called (as a background task) after a webhook writes to dispute_events + disputes.
+    """Called (as a background task) ONLY when a genuinely NEW dispute is ingested.
 
     Performs:
-      1. Incremental daily metrics update for today (+1 total, + amount at risk)
-      2. Breakdown refresh
+      1. Records append-only event in dispute_events
+      2. Incremental atomic daily metrics update for today (+1 total, + amount at risk)
       3. metrics_stale websocket signal
     """
     today = date.today()
@@ -36,16 +36,23 @@ async def on_dispute_ingested(
     async with async_session_factory() as session:
         repo = MetricsRepository(session)
 
+        try:
+            await repo.record_event(
+                dispute_id=dispute_id,
+                event_type="webhook_received",
+                payload=webhook_payload,
+            )
+        except Exception as exc:
+            logger.warning("Failed to record webhook_received event for dispute %s: %s", dispute_id, exc)
+
         await repo.increment_daily_metrics(
             today,
             total_disputes_delta=1,
             amount_at_risk_paise_delta=amount_paise or 0,
         )
 
-        await repo.refresh_breakdowns()
-
-    await manager.broadcast_metrics_stale("all")
-    logger.info("Metrics updated after ingestion of dispute %s", dispute_id)
+    await manager.broadcast_metrics_stale("daily_summary")
+    logger.info("Daily metrics incremented and event recorded after ingestion of new dispute %s", dispute_id)
 
 
 async def on_dispute_resolved(
@@ -57,9 +64,8 @@ async def on_dispute_resolved(
     """Called (as a background task) when a dispute reaches a terminal state.
 
     Performs:
-      1. Incremental daily metrics update (move from at-risk to won/lost)
-      2. Breakdown refresh
-      3. metrics_stale websocket signal
+      1. Incremental atomic daily metrics update (move from at-risk to won/lost)
+      2. metrics_stale websocket signal
     """
     today = date.today()
 
@@ -79,11 +85,9 @@ async def on_dispute_resolved(
             amount_at_risk_paise_delta=-amount_paise if amount_paise else 0,
         )
 
-        await repo.refresh_breakdowns()
-
-    await manager.broadcast_metrics_stale("all")
+    await manager.broadcast_metrics_stale("daily_summary")
     logger.info(
-        "Metrics updated after resolution of dispute %s (outcome=%s)",
+        "Daily metrics updated after resolution of dispute %s (outcome=%s)",
         dispute_id, outcome,
     )
 
@@ -91,30 +95,20 @@ async def on_dispute_resolved(
 async def on_dispute_edited(dispute_id: str) -> None:
     """Called (as a background task) after a human PATCH edit.
 
-    Performs:
-      1. Breakdown refresh (the edit may have changed reason_code / outcome)
-      2. metrics_stale websocket signal
-
-    Note: We don't recompute daily metrics here because a single field edit
-    rarely changes the daily aggregate.  If the outcome was changed, the
-    full daily recomputation can be triggered separately.
+    Broadcasts metrics stale signal to dashboard clients.
     """
-    async with async_session_factory() as session:
-        repo = MetricsRepository(session)
-        await repo.refresh_breakdowns()
-
     await manager.broadcast_metrics_stale("all")
-    logger.info("Metrics refreshed after edit of dispute %s", dispute_id)
+    logger.info("Metrics stale broadcast after edit of dispute %s", dispute_id)
 
 
 async def refresh_breakdowns_background() -> None:
-    """Standalone background task to refresh breakdowns."""
+    """Standalone task to refresh dispute_breakdowns table."""
     async with async_session_factory() as session:
         repo = MetricsRepository(session)
         await repo.refresh_breakdowns()
 
     await manager.broadcast_metrics_stale("breakdown")
-    logger.info("Breakdown refresh completed (background)")
+    logger.info("Breakdown table refresh completed")
 
 
 async def recompute_daily_metrics_background(target_date: date) -> None:
@@ -125,3 +119,59 @@ async def recompute_daily_metrics_background(target_date: date) -> None:
 
     await manager.broadcast_metrics_stale("daily_summary")
     logger.info("Daily metrics recomputed for %s (background)", target_date)
+
+
+class PeriodicBreakdownWorker:
+    """
+    Background worker that periodically refreshes the dispute_breakdowns
+    aggregate table (every 30-60s) independent of individual webhook requests.
+    Eliminates database lock contention on concurrent webhook ingestion.
+    """
+
+    def __init__(self, interval_seconds: float = 30.0) -> None:
+        self.interval_seconds = interval_seconds
+        self._running: bool = False
+        self._task: Optional[asyncio.Task] = None
+
+    async def start(self) -> None:
+        if self._running:
+            return
+        self._running = True
+        self._task = asyncio.create_task(self._run_loop(), name="periodic-breakdown-worker")
+        logger.info("🚀 PeriodicBreakdownWorker started (interval=%.0fs)", self.interval_seconds)
+
+    async def stop(self) -> None:
+        if not self._running:
+            return
+        logger.info("🛑 Stopping PeriodicBreakdownWorker...")
+        self._running = False
+        if self._task:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+        logger.info("✅ PeriodicBreakdownWorker stopped.")
+
+    async def _run_loop(self) -> None:
+        # Initial refresh on startup after 2s grace
+        await asyncio.sleep(2.0)
+        try:
+            await refresh_breakdowns_background()
+        except Exception as exc:
+            logger.warning("Initial breakdown refresh on startup failed: %s", exc)
+
+        while self._running:
+            try:
+                await asyncio.sleep(self.interval_seconds)
+                if not self._running:
+                    break
+                await refresh_breakdowns_background()
+            except asyncio.CancelledError:
+                break
+            except Exception as exc:
+                logger.exception("Error during periodic breakdown refresh: %s", exc)
+
+
+# Global singleton instance
+breakdown_worker = PeriodicBreakdownWorker(interval_seconds=30.0)

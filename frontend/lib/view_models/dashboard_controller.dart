@@ -62,6 +62,7 @@ class DashboardController extends GetxController {
   bool _isLoadingMetrics = false;
   bool _isEditingDispute = false;
   bool _isResettingDatabase = false;
+  bool _isCreatingTestDispute = false;
   Map<String, dynamic>? _pendingReviewPayload;
 
   DashboardConnectionStatus get connectionStatus => _connectionStatus;
@@ -78,10 +79,32 @@ class DashboardController extends GetxController {
   bool get isLoadingMetrics => _isLoadingMetrics;
   bool get isEditingDispute => _isEditingDispute;
   bool get isResettingDatabase => _isResettingDatabase;
+  bool get isCreatingTestDispute => _isCreatingTestDispute;
   Map<String, dynamic>? get pendingReviewPayload => _pendingReviewPayload;
+  Stream<bool> get socketConnectionStateStream =>
+      _socketService.connectionStateStream;
   bool get isBusy =>
       _connectionStatus == DashboardConnectionStatus.loading ||
       _connectionStatus == DashboardConnectionStatus.connecting;
+
+  bool get isProcessingDispute => _disputes.any((d) =>
+      d.status == DisputeStatus.processing ||
+      d.evidenceJobStatus == 'queued' ||
+      d.evidenceJobStatus == 'processing' ||
+      (d.currentNode != null &&
+          d.currentNode != 'completed' &&
+          d.currentNode != 'resolved' &&
+          d.currentNode != 'manual_review_needed' &&
+          !d.requiresHumanReview &&
+          d.status != DisputeStatus.won &&
+          d.status != DisputeStatus.lost &&
+          d.status != DisputeStatus.resolved &&
+          d.status != DisputeStatus.acceptedLoss &&
+          d.status != DisputeStatus.autoRefund &&
+          d.status != DisputeStatus.refundReviewed &&
+          d.status != DisputeStatus.contested &&
+          d.status != DisputeStatus.contestReadySandboxLimitation &&
+          d.status != DisputeStatus.error));
 
   Dispute? get selectedDispute {
     if (_disputes.isEmpty) {
@@ -210,6 +233,67 @@ class DashboardController extends GetxController {
       );
     } finally {
       _isResettingDatabase = false;
+      update();
+    }
+  }
+
+  Future<String?> createTestDispute({
+    required int amountInr,
+    required String itemDescription,
+    required String deliveryStatus,
+    required String customerCommunication,
+    required bool is2faVerified,
+    required int accountAgeDays,
+    required String reasonCode,
+  }) async {
+    _isCreatingTestDispute = true;
+    _errorMessage = null;
+    update();
+
+    try {
+      final response = await _apiService.createTestDispute(
+        baseUrl: apiBaseUrl,
+        amountInr: amountInr,
+        itemDescription: itemDescription,
+        deliveryStatus: deliveryStatus,
+        customerCommunication: customerCommunication,
+        is2faVerified: is2faVerified,
+        accountAgeDays: accountAgeDays,
+        reasonCode: reasonCode,
+      );
+
+      final disputeId = response['dispute_id']?.toString();
+      if (disputeId != null && disputeId.isNotEmpty) {
+        _selectedDisputeId = disputeId;
+        _prependEvent(
+          DashboardEvent(
+            receivedAt: DateTime.now(),
+            type: 'test_dispute_created',
+            title: 'Test Dispute Dispatched',
+            description:
+                'Created synthetic scenario for ₹$amountInr ($reasonCode) -> $disputeId',
+            tone: DashboardEventTone.info,
+            disputeId: disputeId,
+          ),
+        );
+        unawaited(refreshDispute(disputeId));
+        unawaited(refreshMetrics());
+      }
+      return disputeId;
+    } catch (error) {
+      _errorMessage = error.toString();
+      _prependEvent(
+        DashboardEvent(
+          receivedAt: DateTime.now(),
+          type: 'test_dispute_error',
+          title: 'Test Dispute Creation Failed',
+          description: error.toString(),
+          tone: DashboardEventTone.error,
+        ),
+      );
+      return null;
+    } finally {
+      _isCreatingTestDispute = false;
       update();
     }
   }

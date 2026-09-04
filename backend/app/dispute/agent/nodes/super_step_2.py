@@ -86,11 +86,14 @@ async def triage_and_score(state: DisputeAgentState) -> dict[str, Any]:
     if evidence is None:
         return {
             "winnability_score": 0.0,
-            "risk_factors": ["no_evidence_found"],
-            "triage_reasoning": "No evidence was found in the merchant database.",
+            "risk_factors": ["missing_order_record", "no_merchant_evidence"],
+            "triage_reasoning": (
+                "⚠️ Strict Defense-Only Failsafe: No order or payment records found in the merchant database. "
+                "Not enough data is available to solve or defend this dispute. Auto-refunds strictly blocked."
+            ),
             "recommended_action": "accept_loss",
             "customer_legitimacy_signal": False,
-            "legitimacy_reasoning": "No evidence to assess legitimacy.",
+            "legitimacy_reasoning": "Cannot assess customer legitimacy without merchant order records.",
             "current_node": "triage_and_score",
             "node_history": state.get("node_history", []) + ["triage_and_score"],
         }

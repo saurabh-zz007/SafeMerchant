@@ -215,5 +215,88 @@ class SupabaseStorageService:
             raise SupabaseStorageError(f"Network error requesting signed URL: {exc}") from exc
 
 
+    async def purge_evidence_bucket(self, bucket_name: Optional[str] = None) -> int:
+        """
+        Delete all stored PDF evidence files from the Supabase Storage bucket.
+        Attempts to empty the bucket via Supabase Storage API, and falls back to listing
+        and deleting objects.
+        Returns the number of deleted files or 0 if empty/mock.
+        """
+        bucket = bucket_name or self.default_bucket
+        if not self.service_role_key:
+            logger.info("Supabase service role key not configured. Mock storage purge complete for %s.", bucket)
+            return 0
+
+        client = await self._client_session()
+        deleted_count = 0
+
+        # Attempt 1: POST /storage/v1/bucket/{bucket}/empty
+        try:
+            empty_url = f"{self.supabase_url}/storage/v1/bucket/{bucket}/empty"
+            resp = await client.post(empty_url, headers=self._get_headers())
+            if resp.status_code in (200, 201, 204):
+                logger.info("Successfully emptied Supabase Storage bucket %s via empty API endpoint.", bucket)
+                return 1
+            else:
+                logger.debug("Empty bucket API returned HTTP %d: %s. Falling back to object listing...", resp.status_code, resp.text)
+        except Exception as exc:
+            logger.debug("Empty bucket API failed (%s). Falling back to object listing...", exc)
+
+        # Attempt 2: List and delete objects
+        try:
+            list_url = f"{self.supabase_url}/storage/v1/object/list/{bucket}"
+            resp = await client.post(
+                list_url,
+                headers=self._get_headers(),
+                json={"prefix": "", "limit": 1000, "offset": 0, "sortBy": {"column": "name", "order": "asc"}},
+            )
+            if resp.status_code == 200:
+                items = resp.json()
+                prefixes_to_delete: list[str] = []
+                for item in items:
+                    name = item.get("name")
+                    if not name:
+                        continue
+                    # Check if item is an object or folder
+                    if item.get("id") is None and "metadata" not in item:
+                        # Subfolder: list objects inside subfolder
+                        sub_resp = await client.post(
+                            list_url,
+                            headers=self._get_headers(),
+                            json={"prefix": f"{name}/", "limit": 100},
+                        )
+                        if sub_resp.status_code == 200:
+                            sub_items = sub_resp.json()
+                            for sub_item in sub_items:
+                                sub_name = sub_item.get("name")
+                                if sub_name:
+                                    prefixes_to_delete.append(f"{name}/{sub_name}")
+                        prefixes_to_delete.append(name)
+                    else:
+                        prefixes_to_delete.append(name)
+
+                if prefixes_to_delete:
+                    delete_url = f"{self.supabase_url}/storage/v1/object/{bucket}"
+                    del_resp = await client.request(
+                        "DELETE",
+                        delete_url,
+                        headers=self._get_headers(),
+                        json={"prefixes": prefixes_to_delete},
+                    )
+                    if del_resp.status_code in (200, 204):
+                        deleted_count = len(prefixes_to_delete)
+                        logger.info("Purged %d objects from Supabase Storage bucket %s", deleted_count, bucket)
+                    else:
+                        logger.warning("Object deletion returned HTTP %d: %s", del_resp.status_code, del_resp.text)
+            elif resp.status_code == 404:
+                logger.info("Storage bucket %s does not exist or is already empty.", bucket)
+            else:
+                logger.warning("Listing storage objects returned HTTP %d: %s", resp.status_code, resp.text)
+        except Exception as exc:
+            logger.warning("Error during Supabase object listing/deletion for %s: %s", bucket, exc)
+
+        return deleted_count
+
+
 # Singleton instance
 storage_service = SupabaseStorageService()

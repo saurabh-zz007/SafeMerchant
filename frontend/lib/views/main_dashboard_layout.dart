@@ -8,9 +8,10 @@ import '../models/dispute.dart';
 import '../theme/theme_provider.dart';
 import '../utils/display_mappings.dart';
 import '../view_models/dashboard_controller.dart';
+import 'developer_options_screen.dart';
 import 'settings_screen.dart';
 
-enum DashboardSection { overview, disputes, analytics, settings }
+enum DashboardSection { overview, disputes, analytics, settings, developerOptions }
 
 class MainDashboardLayout extends StatefulWidget {
   const MainDashboardLayout({
@@ -29,6 +30,7 @@ class MainDashboardLayout extends StatefulWidget {
 class _MainDashboardLayoutState extends State<MainDashboardLayout> {
   DashboardSection _section = DashboardSection.overview;
   bool _reviewDialogOpen = false;
+  bool _developerUnlocked = false;
 
   @override
   void initState() {
@@ -40,6 +42,28 @@ class _MainDashboardLayoutState extends State<MainDashboardLayout> {
   void dispose() {
     widget.viewModel.removeListener(_onViewModelChanged);
     super.dispose();
+  }
+
+  void _onSectionSelected(DashboardSection section) {
+    if (section == DashboardSection.developerOptions && !_developerUnlocked) {
+      _showDeveloperGatekeeperDialog();
+      return;
+    }
+    setState(() => _section = section);
+  }
+
+  void _showDeveloperGatekeeperDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => _DeveloperGatekeeperDialog(
+        onUnlocked: () {
+          setState(() {
+            _developerUnlocked = true;
+            _section = DashboardSection.developerOptions;
+          });
+        },
+      ),
+    );
   }
 
   void _onViewModelChanged() {
@@ -71,7 +95,7 @@ class _MainDashboardLayoutState extends State<MainDashboardLayout> {
           _Sidebar(
             selected: _section,
             themeProvider: widget.themeProvider,
-            onSelected: (section) => setState(() => _section = section),
+            onSelected: _onSectionSelected,
           ),
           VerticalDivider(width: 1, color: theme.dividerColor),
           Expanded(
@@ -96,6 +120,13 @@ class _MainDashboardLayoutState extends State<MainDashboardLayout> {
                           SettingsScreen(
                             themeProvider: widget.themeProvider,
                             dashboardController: viewModel,
+                          ),
+                          DeveloperOptionsScreen(
+                            viewModel: viewModel,
+                            themeProvider: widget.themeProvider,
+                            onNavigateToDisputes: (disputeId) {
+                              setState(() => _section = DashboardSection.disputes);
+                            },
                           ),
                         ],
                       );
@@ -806,6 +837,10 @@ class _DisputeDetailsDialogState extends State<_DisputeDetailsDialog> {
                 .toList() ??
             const <String>[];
 
+        final isFailsafe = reviewCtx?['unmatched_records_failsafe'] == true ||
+            reviewCtx?['paused_node'] == 'manual_review' ||
+            reviewCtx?['gate_action'] == 'manual_review';
+
         final reviewDraftLetter = reviewCtx?['draft_response_letter']?.toString() ??
             reviewCtx?['verified_explanation_letter']?.toString() ??
             reviewCtx?['draft_explanation_letter']?.toString() ??
@@ -1087,6 +1122,62 @@ class _DisputeDetailsDialogState extends State<_DisputeDetailsDialog> {
                                                      : const Icon(Icons.visibility, size: 16),
                                                  label: Text(_fetchingPdf ? 'Fetching Signed URL...' : 'View Evidence PDF (Supabase CDN)'),
                                                ),
+                                               const SizedBox(height: 12),
+
+                                               if (isFailsafe) ...[
+                                                 Container(
+                                                   padding: const EdgeInsets.all(12),
+                                                   margin: const EdgeInsets.only(bottom: 12),
+                                                   decoration: BoxDecoration(
+                                                     color: Colors.amber.withValues(alpha: 0.12),
+                                                     borderRadius: BorderRadius.circular(8),
+                                                     border: Border.all(
+                                                       color: Colors.amber.withValues(alpha: 0.4),
+                                                     ),
+                                                   ),
+                                                   child: Row(
+                                                     crossAxisAlignment: CrossAxisAlignment.start,
+                                                     children: [
+                                                       Icon(
+                                                         Icons.shield_outlined,
+                                                         color: (theme.brightness == Brightness.dark)
+                                                             ? Colors.amberAccent
+                                                             : Colors.amber.shade900,
+                                                         size: 20,
+                                                       ),
+                                                       const SizedBox(width: 10),
+                                                       Expanded(
+                                                         child: Column(
+                                                           crossAxisAlignment: CrossAxisAlignment.start,
+                                                           children: [
+                                                             Text(
+                                                               'Strict Defense-Only Failsafe Triggered',
+                                                               style: TextStyle(
+                                                                 fontWeight: FontWeight.bold,
+                                                                 fontSize: 13,
+                                                                 color: (theme.brightness == Brightness.dark)
+                                                                     ? Colors.amberAccent
+                                                                     : Colors.amber.shade900,
+                                                               ),
+                                                             ),
+                                                             const SizedBox(height: 4),
+                                                             Text(
+                                                               'Neither order_id nor payment_id exists in the local database. AI agent execution was bypassed to prevent blind refunds. Not enough data is available to solve this case automatically.',
+                                                               style: TextStyle(
+                                                                 fontSize: 12,
+                                                                 color: (theme.brightness == Brightness.dark)
+                                                                     ? Colors.amber.shade200
+                                                                     : Colors.amber.shade900,
+                                                                 height: 1.35,
+                                                               ),
+                                                             ),
+                                                           ],
+                                                         ),
+                                                       ),
+                                                     ],
+                                                   ),
+                                                 ),
+                                               ],
                                              ],
                                            ),
                                          );
@@ -1993,6 +2084,12 @@ class _Sidebar extends StatelessWidget {
                 label: 'Settings',
                 selected: selected == DashboardSection.settings,
                 onPressed: () => onSelected(DashboardSection.settings),
+              ),
+              _NavLink(
+                icon: Icons.terminal_outlined,
+                label: 'Developer Options',
+                selected: selected == DashboardSection.developerOptions,
+                onPressed: () => onSelected(DashboardSection.developerOptions),
               ),
               const Spacer(),
               Tooltip(
@@ -3175,6 +3272,7 @@ String _sectionTitle(DashboardSection section) {
     DashboardSection.disputes => 'Disputes',
     DashboardSection.analytics => 'Analytics',
     DashboardSection.settings => 'Settings',
+    DashboardSection.developerOptions => 'Developer Options',
   };
 }
 
@@ -3499,6 +3597,86 @@ class _EvidencePdfViewerDialogState extends State<_EvidencePdfViewerDialog> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DeveloperGatekeeperDialog extends StatefulWidget {
+  const _DeveloperGatekeeperDialog({required this.onUnlocked});
+
+  final VoidCallback onUnlocked;
+
+  @override
+  State<_DeveloperGatekeeperDialog> createState() => _DeveloperGatekeeperDialogState();
+}
+
+class _DeveloperGatekeeperDialogState extends State<_DeveloperGatekeeperDialog> {
+  final TextEditingController _passkeyController = TextEditingController();
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _passkeyController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final text = _passkeyController.text.trim();
+    if (text == 'admin') {
+      Navigator.of(context).pop();
+      widget.onUnlocked();
+    } else {
+      setState(() {
+        _errorMessage = 'Incorrect passkey. Please type "admin" to enter.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.lock_outline, color: theme.colorScheme.primary),
+          const SizedBox(width: 10),
+          const Text('Developer Options Access'),
+        ],
+      ),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This area contains sandbox simulations, database wipes, and developer tools. Please enter the passkey to continue.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _passkeyController,
+              obscureText: true,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Passkey',
+                hintText: 'Type "admin"',
+                errorText: _errorMessage,
+              ),
+              onSubmitted: (_) => _submit(),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: const Text('Enter Developer Section'),
+        ),
+      ],
     );
   }
 }

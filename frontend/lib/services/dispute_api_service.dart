@@ -212,6 +212,42 @@ class DisputeApiService {
     return decoded is Map<String, dynamic> ? decoded : const {};
   }
 
+  Future<Map<String, dynamic>> createTestDispute({
+    required String baseUrl,
+    required int amountInr,
+    required String itemDescription,
+    required String deliveryStatus,
+    required String customerCommunication,
+    required bool is2faVerified,
+    required int accountAgeDays,
+    required String reasonCode,
+  }) async {
+    final request = await _client.postUrl(
+      Uri.parse('$baseUrl/api/v1/dev/create-test-dispute'),
+    );
+    request.headers.set('Content-Type', 'application/json');
+    request.write(
+      jsonEncode({
+        'amount_inr': amountInr,
+        'item_description': itemDescription,
+        'delivery_status': deliveryStatus,
+        'customer_communication': customerCommunication,
+        'is_2fa_verified': is2faVerified,
+        'account_age_days': accountAgeDays,
+        'reason_code': reasonCode,
+      }),
+    );
+    final response = await request.close();
+    final body = await response.transform(utf8.decoder).join();
+    _ensureSuccess(response.statusCode, body);
+
+    if (body.trim().isEmpty) {
+      return const {};
+    }
+    final decoded = jsonDecode(body);
+    return decoded is Map<String, dynamic> ? decoded : const {};
+  }
+
   void close() {
     _client.close(force: true);
   }

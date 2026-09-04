@@ -18,6 +18,8 @@ extension BackendDisplayLabel on String? {
       'resolved_contested': 'Contested',
       'resolved_accepted_loss': 'Accepted Loss',
       'human_review_required': 'Action Required: Manual Review',
+      'manual_review': 'Manual Review (Failsafe)',
+      'manual_review_required': 'Action Required: Manual Review',
       'awaiting_review': 'Awaiting Review',
       'dispute_received': 'New Dispute Received',
       'node_update': 'Workflow Updated',
