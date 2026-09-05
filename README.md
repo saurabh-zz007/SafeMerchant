@@ -1,4 +1,4 @@
-> For a comprehensive system architecture, sequence flows, and relational schemas, please refer to the SafeMerchant_Full_System_Architecture_and_Flow.pdf which should come from the link https://drive.google.com/file/d/1IhGAo7xyqrP0Ou_J3T0XJoOpjecc9-9q/view?usp=drive_link
+> For a comprehensive system architecture, sequence flows, and relational schemas, please refer to the [SafeMerchant Full System Architecture & Flow](https://drive.google.com/file/d/1ejqt-4eVz13VRtZeBPR4Z0wa2-JjCo5Z/view?usp=sharing) and the [Backend Architecture Deep-Dive](https://drive.google.com/file/d/1WYrjE-iE4mFtOzSrwoQBndK_t89-MoAU/view?usp=sharing).
 
 ---
 
@@ -38,10 +38,7 @@ SafeMerchant/
 │   │   ├── view_models/      # GetX state controller (DashboardController)
 │   │   └── views/            # Dashboard screens (Overview, Disputes, Analytics, Settings, Dev)
 │   └── pubspec.yaml          # Flutter dependencies (get, syncfusion_flutter_pdfviewer)
-├── load-tests/               # Locust load test suite for webhook stress testing
-└── DOCUMENTATION/            # Architectural specifications and markdown documents
-    ├── PDFS/                 # Summary PDFs
-    └── RAW/                  # Detailed architectural & optimization markdown files
+└── load-tests/               # Locust load test suite for webhook stress testing
 ```
 
 ---
@@ -271,8 +268,8 @@ You can simulate disputes and test the agentic pipeline in two ways:
 
 ## 6. Architecture & Deep-Dive References
 
-For detailed explanations of the decision gate matrix, grounding verifier, and schema design, inspect:
+For comprehensive architectural blueprints, sequence flows, decision matrices, and relational schemas, refer to the following documents:
 
-- **[DOCUMENTATION/RAW/SafeMerchant_Full_System_Architecture_and_Flow.md](DOCUMENTATION/RAW/SafeMerchant_Full_System_Architecture_and_Flow.md)**: Full hackathon architecture and sequence flows.
-- **[DOCUMENTATION/RAW/WEBHOOK_INGESTION_OPTIMIZATION_AND_BENCHMARKS.md](DOCUMENTATION/RAW/WEBHOOK_INGESTION_OPTIMIZATION_AND_BENCHMARKS.md)**: Details on the lock contention diagnosis and latency optimization.
+- **[SafeMerchant Full System Architecture & Flow (Frontend + Backend + Cloud)](https://drive.google.com/file/d/1ejqt-4eVz13VRtZeBPR4Z0wa2-JjCo5Z/view?usp=sharing)**: Complete system overview covering the Flutter operations UI, real-time WebSocket protocol, ReportLab evidence generation, and end-to-end sequence flows.
+- **[Backend Architecture & Flow Deep-Dive](https://drive.google.com/file/d/1WYrjE-iE4mFtOzSrwoQBndK_t89-MoAU/view?usp=sharing)**: Backend deep-dive covering the LangGraph state machine, Super Steps 1–3, deterministic grounding verification, and the 12-table relational database schema.
 - **[backend/app/dispute/agent/graph.py](backend/app/dispute/agent/graph.py)**: LangGraph state machine definition and node wiring.
