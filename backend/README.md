@@ -277,3 +277,21 @@ curl -X POST http://localhost:8000/api/v1/dev/create-test-dispute \
 | `DELETE` | `/api/v1/admin/reset` | Clears all dispute tables and purges Supabase storage bucket |
 | `GET` | `/api/v1/health` | Backend health probe |
 | `WS` | `/ws/dashboard` | Real-time WebSocket connection for live agent updates |
+
+---
+
+## 📊 Evaluation & Benchmark Metrics
+
+The dispute agent pipeline includes an automated evaluation and metrics reporting tool to benchmark pipeline decisions against ground-truth labels:
+
+- **Full Audit Report**: **[metrics_report.md](../metrics_report.md)**
+- **Evaluation Runner**: `backend/evaluation/generate_metrics_report.py`
+- **Ground Truth CSV**: `backend/evaluation/ground_truth.csv`
+
+### Generating the Metrics Report
+
+```bash
+# Run against database test runs to recompute accuracy, precision, recall, and FP costs
+python backend/evaluation/generate_metrics_report.py --output ../metrics_report.md
+```
+

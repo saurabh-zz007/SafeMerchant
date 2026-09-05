@@ -12,12 +12,28 @@ Gate Decisions Tested:
 
 from __future__ import annotations
 
+import copy
+import json
+import logging
 import time
 import uuid
-from typing import Dict, List
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from config.settings import settings
 from features.dispute_webhook.models.payload_models import DisputeScenario
+
+logger = logging.getLogger(__name__)
+
+# Path to load-tests/testcase.json
+LOAD_TESTS_DIR = Path(__file__).resolve().parents[3]
+TESTCASE_JSON_PATH = LOAD_TESTS_DIR / "testcase.json"
+
+_TESTCASE_CACHE: Dict[str, Any] = {
+    "mtime": 0.0,
+    "payloads": [],
+}
+
 
 # ── 5 Core Gate-Decision Test Scenarios matching PostgreSQL Seed Data ─────────
 
@@ -206,3 +222,122 @@ def build_dispute_webhook_payload(
         },
         "created_at": now_ts,
     }
+
+
+def load_testcase_payloads(force_reload: bool = False) -> List[dict]:
+    """
+    Loads dispute webhook test payloads from load-tests/testcase.json.
+    Automatically detects file modification (st_mtime) to reload without restarting Locust.
+    Falls back to ALL_SCENARIOS if testcase.json is missing or unparseable.
+    """
+    if not TESTCASE_JSON_PATH.exists():
+        logger.warning(
+            "testcase.json not found at %s. Falling back to default scenarios.",
+            TESTCASE_JSON_PATH,
+        )
+        return [build_dispute_webhook_payload(s) for s in ALL_SCENARIOS]
+
+    try:
+        current_mtime = TESTCASE_JSON_PATH.stat().st_mtime
+        if not force_reload and _TESTCASE_CACHE["mtime"] == current_mtime and _TESTCASE_CACHE["payloads"]:
+            return _TESTCASE_CACHE["payloads"]
+
+        raw_text = TESTCASE_JSON_PATH.read_text(encoding="utf-8")
+        data = json.loads(raw_text)
+
+        if isinstance(data, dict):
+            if "testcases" in data and isinstance(data["testcases"], list):
+                items = data["testcases"]
+            elif "payload" in data or "payment" in data:
+                items = [data]
+            else:
+                items = [data]
+        elif isinstance(data, list):
+            items = data
+        else:
+            items = []
+
+        if not items:
+            logger.warning("testcase.json is empty. Falling back to default 5 scenarios.")
+            return [build_dispute_webhook_payload(s) for s in ALL_SCENARIOS]
+
+        _TESTCASE_CACHE["mtime"] = current_mtime
+        _TESTCASE_CACHE["payloads"] = items
+        logger.info(
+            "Loaded %d dispute testcase payload(s) from %s (mtime: %s)",
+            len(items),
+            TESTCASE_JSON_PATH.name,
+            current_mtime,
+        )
+        return items
+
+    except Exception as exc:
+        logger.error("Error reading testcase.json: %s", exc, exc_info=True)
+        cached = _TESTCASE_CACHE.get("payloads")
+        if cached:
+            return cached
+        return [build_dispute_webhook_payload(s) for s in ALL_SCENARIOS]
+
+
+def prepare_testcase_for_request(
+    raw_item: dict,
+    index: int = 0,
+    unique_suffix: Optional[bool] = None,
+) -> Tuple[dict, str]:
+    """
+    Normalizes and prepares a testcase payload for HTTP dispatch.
+
+    - Extracts metadata to generate a clean, descriptive ASCII request label:
+      e.g. "1_ORD_2006_product_not_received_INR_2499"
+    - If unique_suffix or settings.UNIQUE_DISPUTE_IDS is True, appends a short UUID
+      to dispute_id to prevent duplicate collision on repeated test runs.
+    """
+    payload = copy.deepcopy(raw_item)
+
+    # Unwrap if nested under 'webhook_request'
+    if "webhook_request" in payload and isinstance(payload["webhook_request"], dict):
+        payload = payload["webhook_request"]
+
+    # Wrap raw payment/dispute structure if missing outer Razorpay event wrapper
+    if "payload" not in payload and ("payment" in payload or "dispute" in payload):
+        payload = {
+            "entity": "event",
+            "account_id": "acc_CFvOKjkTwf3GQy",
+            "event": "payment.dispute.created",
+            "contains": ["payment", "dispute"],
+            "payload": payload,
+            "created_at": int(time.time()),
+        }
+
+    # Extract payment and dispute entities for label extraction
+    payment_entity = (
+        payload.get("payload", {}).get("payment", {}).get("entity", {})
+        or payload.get("payment", {}).get("entity", {})
+        or {}
+    )
+    dispute_entity = (
+        payload.get("payload", {}).get("dispute", {}).get("entity", {})
+        or payload.get("dispute", {}).get("entity", {})
+        or {}
+    )
+
+    order_id = payment_entity.get("order_id") or f"ORD_{index+1}"
+    amount_paise = dispute_entity.get("amount") or payment_entity.get("amount") or 0
+    amount_inr = int(amount_paise) // 100
+    reason_code = dispute_entity.get("reason_code") or "unknown_reason"
+    base_dispute_id = dispute_entity.get("id") or f"disp_case_{index+1}"
+
+    should_uniquify = (
+        settings.UNIQUE_DISPUTE_IDS if unique_suffix is None else unique_suffix
+    )
+    if should_uniquify:
+        short_id = uuid.uuid4().hex[:6]
+        new_dispute_id = f"{base_dispute_id}_{short_id}"
+        if "payload" in payload and "dispute" in payload["payload"]:
+            payload["payload"]["dispute"]["entity"]["id"] = new_dispute_id
+        elif "dispute" in payload:
+            payload["dispute"]["entity"]["id"] = new_dispute_id
+
+    label = f"{index+1}_{order_id}_{reason_code}_INR_{amount_inr}"
+    return payload, label
+

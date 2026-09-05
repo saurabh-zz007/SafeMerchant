@@ -37,7 +37,7 @@ class Settings:
     )
 
     # Delay between consecutive tests in seconds (default 10.0 seconds as required)
-    TASK_DELAY_SECONDS: float = float(os.getenv("TASK_DELAY_SECONDS", "10.0"))
+    TASK_DELAY_SECONDS: float = float(os.getenv("TASK_DELAY_SECONDS", "2.0"))
 
     # Whether to append unique timestamp suffixes to dispute IDs (False by default to test real dispute ID idempotency)
     UNIQUE_DISPUTE_IDS: bool = os.getenv("UNIQUE_DISPUTE_IDS", "false").lower() in ("true", "1", "yes")

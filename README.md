@@ -449,3 +449,22 @@ For comprehensive architectural blueprints, sequence flows, decision matrices, a
 - **[SafeMerchant Full System Architecture & Flow (Frontend + Backend + Cloud)](https://drive.google.com/file/d/1ejqt-4eVz13VRtZeBPR4Z0wa2-JjCo5Z/view?usp=sharing)**: Complete system overview covering the Flutter operations UI, real-time WebSocket protocol, ReportLab evidence generation, and end-to-end sequence flows.
 - **[Backend Architecture & Flow Deep-Dive](https://drive.google.com/file/d/1WYrjE-iE4mFtOzSrwoQBndK_t89-MoAU/view?usp=sharing)**: Backend deep-dive covering the LangGraph state machine, Super Steps 1–3, deterministic grounding verification, and the 12-table relational database schema.
 - **[backend/app/dispute/agent/graph.py](backend/app/dispute/agent/graph.py)**: LangGraph state machine definition and node wiring.
+
+---
+
+## 8. Pipeline Evaluation & Benchmark Metrics
+
+The dispute risk pipeline was evaluated against a 50-case held-out benchmark suite (`ORD_2006`–`ORD_2025`, `ORD_2101`–`ORD_2130`) executed via Locust:
+
+- **📊 Comprehensive Evaluation Report**: **[metrics_report.md](metrics_report.md)**  
+  *(Detailed audit table, confusion matrix, false positive cost analysis, and false positive/negative root-cause breakdown)*
+- **🧪 Load Testing Suite & Re-running Instructions**: **[load-tests/README.md](load-tests/README.md)**  
+  *(Details on `testcase.json`, `load-tests/Held Out Sets/`, and running the 50-case benchmark via Locust)*
+
+| Benchmark Metric | Result | Meaning |
+|---|---|---|
+| **Accuracy** | **76.00%** (38/50) | Overall correct classification rate |
+| **Precision** | **68.97%** (20/29) | Reliability of contest actions (low merchant loss risk) |
+| **Recall** | **86.96%** (20/23) | Winnable disputes successfully defended |
+| **Confusion Matrix** | **TP: 20 \| FN: 3 \| FP: 9 \| TN: 18** | Full 50-case evaluation matrix |
+

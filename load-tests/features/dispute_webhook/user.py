@@ -15,7 +15,7 @@ from features.dispute_webhook.tasks import (
 
 class DisputeSequentialUser(HttpUser):
     """
-    User executing the 5 test scenarios sequentially with a 10-second delay between requests.
+    User executing all test scenarios from testcase.json sequentially with a 10-second delay between requests.
     Recommended for predictable, scenario-by-scenario verification.
     """
 
@@ -26,7 +26,7 @@ class DisputeSequentialUser(HttpUser):
 
 class DisputeWebhookUser(HttpUser):
     """
-    User executing concurrent/random dispute webhook requests across all 5 scenarios
+    User executing concurrent/random dispute webhook requests across all scenarios in testcase.json
     with a 10-second delay between requests per user.
     """
 

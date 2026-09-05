@@ -1,0 +1,391 @@
+-- ==============================================================================
+-- SafeMerchant — Fraudulent Dispute Coverage Test Data
+-- Each order below is crafted to represent a fraudulent claim (customer lying,
+-- account takeover, friendly fraud, etc.) and should NOT result in an auto-refund.
+-- ==============================================================================
+
+-- 1. Orders
+INSERT INTO orders (order_id, payment_id, customer_email, amount_inr, item_description, created_at)
+VALUES
+    -- ORD_2006: Low value, OTP delivered, customer confirmed receipt -> AUTO_SUBMIT (contest)
+    ('ORD_2006', 'pay_XYZ2006', 'fraudster1@gmail.com', 2499, 'Wireless Mouse', '2026-08-20T10:00:00Z'),
+    -- ORD_2007: High value, OTP + signature, customer confirmed -> HUMAN_REVIEW (contest)
+    ('ORD_2007', 'pay_XYZ2007', 'fraudster2@outlook.com', 35000, 'Gaming Laptop', '2026-08-21T14:30:00Z'),
+    -- ORD_2008: Low value, photo proof + signature, new account -> AUTO_SUBMIT (contest)
+    ('ORD_2008', 'pay_XYZ2008', 'fraudster3@yahoo.com', 4999, 'Smart Watch', '2026-08-22T09:15:00Z'),
+    -- ORD_2009: High value, OTP delivered but claims empty box, old account -> HUMAN_REVIEW
+    ('ORD_2009', 'pay_XYZ2009', 'fraudster4@gmail.com', 28000, 'Designer Handbag', '2026-08-23T16:45:00Z'),
+    -- ORD_2010: Low value, delivered, high-risk profile -> ACCEPT_LOSS (not worth contesting)
+    ('ORD_2010', 'pay_XYZ2010', 'fraudster5@protonmail.com', 3499, 'Bluetooth Speaker', '2026-08-24T11:20:00Z'),
+    -- ORD_2011: Very low value, VPN IP, day-old account -> ACCEPT_LOSS
+    ('ORD_2011', 'pay_XYZ2011', 'fraudster6@mail.com', 1999, 'Fitness Tracker', '2026-08-25T08:00:00Z'),
+    -- ORD_2012: High value, signature delivered, old account -> HUMAN_REVIEW
+    ('ORD_2012', 'pay_XYZ2012', 'fraudster7@gmail.com', 18500, 'Camera Lens', '2026-08-26T13:10:00Z'),
+    -- ORD_2013: Medium value, OTP delivered, no prior issues -> AUTO_SUBMIT
+    ('ORD_2013', 'pay_XYZ2013', 'fraudster8@outlook.com', 12500, 'Coffee Machine', '2026-08-27T10:45:00Z'),
+    -- ORD_2014: Low value, signature delivered, account 30 days -> AUTO_SUBMIT
+    ('ORD_2014', 'pay_XYZ2014', 'fraudster9@gmail.com', 6999, 'Headphones', '2026-08-28T15:30:00Z'),
+    -- ORD_2015: High value, OTP delivered, long-standing account -> HUMAN_REVIEW
+    ('ORD_2015', 'pay_XYZ2015', 'fraudster10@gmail.com', 45000, 'Smartphone', '2026-08-29T12:00:00Z')
+ON CONFLICT (order_id) DO UPDATE SET
+    payment_id = EXCLUDED.payment_id,
+    customer_email = EXCLUDED.customer_email,
+    amount_inr = EXCLUDED.amount_inr,
+    item_description = EXCLUDED.item_description,
+    created_at = EXCLUDED.created_at;
+
+
+-- 2. Shipping Logs (all delivered with proof, no lost items)
+INSERT INTO shipping_logs (tracking_id, order_id, courier_partner, delivery_status, signed_by, delivery_timestamp)
+VALUES
+    ('TRK_2006', 'ORD_2006', 'Delhivery', 'Delivered', 'Self (OTP Verified)', '2026-08-22T14:00:00Z'),
+    ('TRK_2007', 'ORD_2007', 'BlueDart', 'Delivered', 'Self (OTP + Signature)', '2026-08-23T16:30:00Z'),
+    ('TRK_2008', 'ORD_2008', 'Ekart', 'Delivered', 'Photo Proof + Signature', '2026-08-24T11:00:00Z'),
+    ('TRK_2009', 'ORD_2009', 'Delhivery', 'Delivered', 'Self (OTP Verified)', '2026-08-25T18:20:00Z'),
+    ('TRK_2010', 'ORD_2010', 'BlueDart', 'Delivered', 'Self (OTP Verified)', '2026-08-26T13:45:00Z'),
+    ('TRK_2011', 'ORD_2011', 'Ekart', 'Delivered', 'Self (OTP Verified)', '2026-08-27T09:30:00Z'),
+    ('TRK_2012', 'ORD_2012', 'Delhivery', 'Delivered', 'Signed by Customer', '2026-08-28T15:10:00Z'),
+    ('TRK_2013', 'ORD_2013', 'BlueDart', 'Delivered', 'Self (OTP Verified)', '2026-08-29T12:20:00Z'),
+    ('TRK_2014', 'ORD_2014', 'Ekart', 'Delivered', 'Signed by Customer', '2026-08-30T17:00:00Z'),
+    ('TRK_2015', 'ORD_2015', 'Delhivery', 'Delivered', 'Self (OTP Verified)', '2026-08-31T14:40:00Z')
+ON CONFLICT (tracking_id) DO UPDATE SET
+    order_id = EXCLUDED.order_id,
+    courier_partner = EXCLUDED.courier_partner,
+    delivery_status = EXCLUDED.delivery_status,
+    signed_by = EXCLUDED.signed_by,
+    delivery_timestamp = EXCLUDED.delivery_timestamp;
+
+
+-- 3. Customer Communications (some confirm receipt, some never contacted)
+INSERT INTO customer_communications (ticket_id, order_id, channel, message_transcript, logged_at)
+VALUES
+    -- ORD_2006: Customer confirmed receipt then disputed
+    ('TCK_2006', 'ORD_2006', 'Email', 'Customer: Mouse received and working great, thanks!', '2026-08-23T09:00:00Z'),
+    -- ORD_2007: Customer confirmed delivery
+    ('TCK_2007', 'ORD_2007', 'Email', 'Customer: Laptop delivered, excited to set it up!', '2026-08-24T10:00:00Z'),
+    -- ORD_2008: No communication before dispute
+    -- ORD_2009: Customer complained about empty box after delivery
+    ('TCK_2009', 'ORD_2009', 'WhatsApp', 'Customer: Box was empty when I opened it, this is a scam. Support: We are investigating with courier.', '2026-08-26T09:30:00Z'),
+    -- ORD_2010: No communication
+    -- ORD_2011: No communication
+    -- ORD_2012: No communication
+    -- ORD_2013: No communication
+    -- ORD_2014: No communication
+    -- ORD_2015: Customer claimed not received despite OTP
+    ('TCK_2015', 'ORD_2015', 'Email', 'Customer: I never got the phone, even though it says delivered. Support: Delivery shows OTP verified, please check with household members.', '2026-09-01T08:00:00Z')
+ON CONFLICT (ticket_id) DO UPDATE SET
+    order_id = EXCLUDED.order_id,
+    channel = EXCLUDED.channel,
+    message_transcript = EXCLUDED.message_transcript,
+    logged_at = EXCLUDED.logged_at;
+
+
+-- 4. Risk Signals (varied profiles, many suspicious)
+INSERT INTO risk_signals (order_id, ip_address, device_fingerprint, is_2fa_verified, account_age_days)
+VALUES
+    ('ORD_2006', '106.51.20.44 (Pune, MH)', 'Windows Chrome 128.0.0.0', TRUE, 45),
+    ('ORD_2007', '117.201.4.12 (Mumbai, MH)', 'iPhone Safari 17.5', TRUE, 90),
+    ('ORD_2008', '203.192.11.7 (Chennai, TN)', 'Android Chrome 91.0.4472', FALSE, 10),
+    ('ORD_2009', '45.115.87.33 (Unknown Region)', 'Mac Chrome 128.0.0.0', TRUE, 200),
+    ('ORD_2010', '89.187.162.5 (Unknown Region)', 'Android Chrome 89.0.4389', FALSE, 5),
+    ('ORD_2011', '185.220.101.4 (VPN Detected)', 'Android Chrome 91.0.4472', FALSE, 1),
+    ('ORD_2012', '106.51.20.44 (Pune, MH)', 'Windows Chrome 128.0.0.0', TRUE, 300),
+    ('ORD_2013', '117.201.4.12 (Mumbai, MH)', 'iPhone Safari 17.5', TRUE, 60),
+    ('ORD_2014', '203.192.11.7 (Chennai, TN)', 'Android Chrome 91.0.4472', TRUE, 30),
+    ('ORD_2015', '106.51.20.44 (Pune, MH)', 'Mac Chrome 128.0.0.0', TRUE, 500)
+
+
+
+-- ==============================================================================
+-- SafeMerchant — Genuine (Legitimate) Dispute Coverage Test Data
+-- Each order below represents a true customer issue (lost, damaged, wrong item,
+-- non-delivery, etc.) where the merchant SHOULD refund the customer.
+-- Gate decisions covered: AUTO_REFUND (low value), REFUND_REVIEW (high value).
+-- ==============================================================================
+
+-- 1. Orders
+INSERT INTO orders (order_id, payment_id, customer_email, amount_inr, item_description, created_at)
+VALUES
+    -- ORD_2016: Low value, lost in transit, customer proactive -> AUTO_REFUND
+    ('ORD_2016', 'pay_XYZ2016', 'ananya.iyer@gmail.com', 1899, 'USB-C Hub 7-in-1', '2026-09-01T09:30:00Z'),
+    -- ORD_2017: High value, lost in transit, customer proactive -> REFUND_REVIEW
+    ('ORD_2017', 'pay_XYZ2017', 'arjun.nair@outlook.com', 32999, 'Sony Alpha Camera', '2026-09-02T14:45:00Z'),
+    -- ORD_2018: Low value, delivered but damaged, customer sent photos -> AUTO_REFUND
+    ('ORD_2018', 'pay_XYZ2018', 'kavya.reddy@yahoo.com', 2499, 'Ceramic Dinner Set', '2026-09-03T11:20:00Z'),
+    -- ORD_2019: High value, wrong item delivered, customer complained -> REFUND_REVIEW
+    ('ORD_2019', 'pay_XYZ2019', 'vikram.singh@gmail.com', 27500, 'MacBook Air Accessory Kit', '2026-09-04T16:10:00Z'),
+    -- ORD_2020: Low value, package returned to sender, no delivery -> AUTO_REFUND
+    ('ORD_2020', 'pay_XYZ2020', 'meera.pillai@protonmail.com', 1599, 'Yoga Mat Premium', '2026-09-05T08:00:00Z'),
+    -- ORD_2021: Medium-high value, lost in transit, customer contacted support -> REFUND_REVIEW
+    ('ORD_2021', 'pay_XYZ2021', 'rohan.gupta@gmail.com', 8999, 'Mechanical Keyboard', '2026-09-06T13:30:00Z'),
+    -- ORD_2022: Low value, digital product (activation code) not delivered -> AUTO_REFUND
+    ('ORD_2022', 'pay_XYZ2022', 'divya.krishnan@outlook.com', 799, 'Antivirus 1-Year License', '2026-09-07T10:15:00Z'),
+    -- ORD_2023: High value, delivered but defective, customer attempted multiple contacts -> REFUND_REVIEW
+    ('ORD_2023', 'pay_XYZ2023', 'amit.verma@gmail.com', 42000, '4K Drone with Camera', '2026-09-08T15:45:00Z'),
+    -- ORD_2024: Low value, carrier mishandled (damaged in transit), customer contacted -> AUTO_REFUND
+    ('ORD_2024', 'pay_XYZ2024', 'sneha.patil@yahoo.com', 2199, 'Glass Storage Containers Set', '2026-09-09T09:00:00Z'),
+    -- ORD_2025: Low value (₹4,999), lost in transit, customer contacted -> AUTO_REFUND
+    ('ORD_2025', 'pay_XYZ2025', 'rahul.kumar@gmail.com', 4999, 'Tablet Stand + Bluetooth Keyboard', '2026-09-10T12:00:00Z')
+ON CONFLICT (order_id) DO UPDATE SET
+    payment_id = EXCLUDED.payment_id,
+    customer_email = EXCLUDED.customer_email,
+    amount_inr = EXCLUDED.amount_inr,
+    item_description = EXCLUDED.item_description,
+    created_at = EXCLUDED.created_at;
+
+
+-- 2. Shipping Logs (all reflect non-delivery or problematic delivery)
+INSERT INTO shipping_logs (tracking_id, order_id, courier_partner, delivery_status, signed_by, delivery_timestamp)
+VALUES
+    -- ORD_2016: Lost in transit, no delivery
+    ('TRK_2016', 'ORD_2016', 'Delhivery', 'Lost_In_Transit', NULL, NULL),
+    -- ORD_2017: Lost in transit, no delivery
+    ('TRK_2017', 'ORD_2017', 'BlueDart', 'Lost_In_Transit', NULL, NULL),
+    -- ORD_2018: Delivered but package was damaged (customer reported)
+    ('TRK_2018', 'ORD_2018', 'Ekart', 'Delivered', 'Left at Door (No Signature)', '2026-09-05T14:30:00Z'),
+    -- ORD_2019: Delivered but wrong item inside (customer reported)
+    ('TRK_2019', 'ORD_2019', 'Delhivery', 'Delivered', 'Signed by Customer', '2026-09-06T16:20:00Z'),
+    -- ORD_2020: Package returned to sender (no delivery attempt)
+    ('TRK_2020', 'ORD_2020', 'BlueDart', 'Returned_To_Sender', NULL, NULL),
+    -- ORD_2021: Lost in transit
+    ('TRK_2021', 'ORD_2021', 'Delhivery', 'Lost_In_Transit', NULL, NULL),
+    -- ORD_2022: Digital product - no physical shipment (tracking not applicable)
+    ('TRK_2022', 'ORD_2022', 'Digital', 'Not_Applicable', NULL, NULL),
+    -- ORD_2023: Delivered but defective (customer reported)
+    ('TRK_2023', 'ORD_2023', 'Ekart', 'Delivered', 'Signed by Customer', '2026-09-10T11:00:00Z'),
+    -- ORD_2024: Damaged in transit (courier marked as damaged)
+    ('TRK_2024', 'ORD_2024', 'BlueDart', 'Damaged_In_Transit', NULL, NULL),
+    -- ORD_2025: Lost in transit
+    ('TRK_2025', 'ORD_2025', 'Delhivery', 'Lost_In_Transit', NULL, NULL)
+ON CONFLICT (tracking_id) DO UPDATE SET
+    order_id = EXCLUDED.order_id,
+    courier_partner = EXCLUDED.courier_partner,
+    delivery_status = EXCLUDED.delivery_status,
+    signed_by = EXCLUDED.signed_by,
+    delivery_timestamp = EXCLUDED.delivery_timestamp;
+
+
+-- 3. Customer Communications (all show proactive, legitimate concerns)
+INSERT INTO customer_communications (ticket_id, order_id, channel, message_transcript, logged_at)
+VALUES
+    -- ORD_2016: Customer asked about delay before dispute
+    ('TCK_2016', 'ORD_2016', 'Email', 'Customer: My order has not moved for a week, can you check? Support: We are investigating with courier.', '2026-09-08T10:00:00Z'),
+    -- ORD_2017: Customer reported non-delivery after tracking stopped updating
+    ('TCK_2017', 'ORD_2017', 'WhatsApp', 'Customer: Tracking shows no update for 5 days, is it lost? Support: We have raised a ticket with BlueDart.', '2026-09-09T15:30:00Z'),
+    -- ORD_2018: Customer sent photos of damaged dinner set
+    ('TCK_2018', 'ORD_2018', 'Email', 'Customer: The box arrived but plates are cracked. I have attached photos. Support: We apologize, please share order details.', '2026-09-06T09:45:00Z'),
+    -- ORD_2019: Customer complained about wrong item inside package
+    ('TCK_2019', 'ORD_2019', 'Email', 'Customer: I received a generic cable kit instead of the MacBook accessory kit I ordered. Support: We will verify and arrange return/refund.', '2026-09-07T12:20:00Z'),
+    -- ORD_2020: Customer informed about package being returned
+    ('TCK_2020', 'ORD_2020', 'WhatsApp', 'Customer: The courier attempted delivery but I was out of town; now it says returned. Can you reship? Support: We will process refund.', '2026-09-08T18:00:00Z'),
+    -- ORD_2021: Customer reported non-delivery, asked for refund
+    ('TCK_2021', 'ORD_2021', 'Email', 'Customer: My keyboard never arrived, tracking is stuck. Please refund. Support: We are checking with courier and will update.', '2026-09-11T09:00:00Z'),
+    -- ORD_2022: Customer never received activation code
+    ('TCK_2022', 'ORD_2022', 'Email', 'Customer: I paid but did not receive the license key. Support: We will resend or refund.', '2026-09-08T11:30:00Z'),
+    -- ORD_2023: Customer reported drone defective after first use
+    ('TCK_2023', 'ORD_2023', 'WhatsApp', 'Customer: The drone camera is not focusing, I tried restarting. Support: Please send a video, we will arrange replacement or refund.', '2026-09-12T14:00:00Z'),
+    -- ORD_2024: Customer informed about damaged glass containers
+    ('TCK_2024', 'ORD_2024', 'Email', 'Customer: Couriers left the box battered, many containers broken. Support: We apologize, will refund.', '2026-09-10T10:15:00Z'),
+    -- ORD_2025: Customer asked about lost order
+    ('TCK_2025', 'ORD_2025', 'WhatsApp', 'Customer: Still no update, please cancel and refund. Support: We are processing refund.', '2026-09-12T16:30:00Z')
+ON CONFLICT (ticket_id) DO UPDATE SET
+    order_id = EXCLUDED.order_id,
+    channel = EXCLUDED.channel,
+    message_transcript = EXCLUDED.message_transcript,
+    logged_at = EXCLUDED.logged_at;
+
+
+-- 4. Risk Signals (all normal, no suspicious indicators)
+INSERT INTO risk_signals (order_id, ip_address, device_fingerprint, is_2fa_verified, account_age_days)
+VALUES
+    ('ORD_2016', '106.51.20.44 (Pune, MH)', 'Windows Chrome 128.0.0.0', TRUE, 210),
+    ('ORD_2017', '117.201.4.12 (Mumbai, MH)', 'iPhone Safari 17.5', TRUE, 540),
+    ('ORD_2018', '203.192.11.7 (Chennai, TN)', 'Mac Chrome 128.0.0.0', TRUE, 320),
+    ('ORD_2019', '106.51.20.44 (Pune, MH)', 'Windows Chrome 128.0.0.0', TRUE, 480),
+    ('ORD_2020', '117.201.4.12 (Mumbai, MH)', 'Android Chrome 91.0.4472', TRUE, 150),
+    ('ORD_2021', '203.192.11.7 (Chennai, TN)', 'iPhone Safari 17.5', TRUE, 95),
+    ('ORD_2022', '106.51.20.44 (Pune, MH)', 'Windows Chrome 128.0.0.0', TRUE, 260),
+    ('ORD_2023', '117.201.4.12 (Mumbai, MH)', 'Mac Chrome 128.0.0.0', TRUE, 400),
+    ('ORD_2024', '203.192.11.7 (Chennai, TN)', 'Android Chrome 91.0.4472', TRUE, 180),
+    ('ORD_2025', '106.51.20.44 (Pune, MH)', 'Windows Chrome 128.0.0.0', TRUE, 300)
+
+
+
+-- ==============================================================================
+-- SafeMerchant — Mixed Coverage Test Data (30 Disputes)
+-- Legitimate: 15 | Fraudulent: 15
+-- Gate decisions covered: AUTO_REFUND, REFUND_REVIEW, AUTO_SUBMIT, HUMAN_REVIEW, ACCEPT_LOSS
+-- ==============================================================================
+
+-- 1. Orders
+INSERT INTO orders (order_id, payment_id, customer_email, amount_inr, item_description, created_at)
+VALUES
+    -- Legitimate (15)
+    ('ORD_2101', 'pay_XYZ2101', 'aisha.khan@gmail.com', 1499, 'Phone Charger 65W', '2026-09-11T09:00:00Z'),
+    ('ORD_2102', 'pay_XYZ2102', 'bimal.shah@outlook.com', 29999, 'Refrigerator 180L', '2026-09-12T14:30:00Z'),
+    ('ORD_2103', 'pay_XYZ2103', 'chitra.rao@yahoo.com', 3499, 'Saree Silk Premium', '2026-09-13T11:15:00Z'),
+    ('ORD_2104', 'pay_XYZ2104', 'dinesh.patil@gmail.com', 45000, 'Office Chair Ergonomic', '2026-09-14T16:45:00Z'),
+    ('ORD_2105', 'pay_XYZ2105', 'esha.gupta@protonmail.com', 899, 'Notebook Set (3 pcs)', '2026-09-15T08:20:00Z'),
+    ('ORD_2106', 'pay_XYZ2106', 'farhan.ali@gmail.com', 19999, 'Air Purifier', '2026-09-16T10:10:00Z'),
+    ('ORD_2107', 'pay_XYZ2107', 'gauri.menon@outlook.com', 5999, 'Backpack Laptop 15.6"', '2026-09-17T13:40:00Z'),
+    ('ORD_2108', 'pay_XYZ2108', 'harish.kumar@gmail.com', 12000, 'Espresso Machine', '2026-09-18T15:25:00Z'),
+    ('ORD_2109', 'pay_XYZ2109', 'isha.desai@yahoo.com', 799, 'Mouse Pad XL', '2026-09-19T09:50:00Z'),
+    ('ORD_2110', 'pay_XYZ2110', 'jatin.mehta@gmail.com', 78000, 'OLED TV 55"', '2026-09-20T12:30:00Z'),
+    ('ORD_2111', 'pay_XYZ2111', 'kavita.nair@protonmail.com', 2499, 'Water Bottle Steel', '2026-09-21T10:05:00Z'),
+    ('ORD_2112', 'pay_XYZ2112', 'lalit.joshi@gmail.com', 34999, 'Washing Machine', '2026-09-22T14:55:00Z'),
+    ('ORD_2113', 'pay_XYZ2113', 'meena.iyer@outlook.com', 1799, 'Cushion Covers (4 pcs)', '2026-09-23T11:35:00Z'),
+    ('ORD_2114', 'pay_XYZ2114', 'naveen.reddy@gmail.com', 8999, 'Soundbar 2.1', '2026-09-24T16:20:00Z'),
+    ('ORD_2115', 'pay_XYZ2115', 'om.prakash@yahoo.com', 499, 'USB Cable 2m', '2026-09-25T08:45:00Z'),
+
+    -- Fraudulent (15)
+    ('ORD_2116', 'pay_XYZ2116', 'priya.fraud@gmail.com', 1999, 'Power Bank 10000mAh', '2026-09-26T09:15:00Z'),
+    ('ORD_2117', 'pay_XYZ2117', 'rohit.fraudster@outlook.com', 55000, 'iPhone 15 Pro', '2026-09-27T14:10:00Z'),
+    ('ORD_2118', 'pay_XYZ2118', 'sneha.scam@yahoo.com', 2999, 'Makeup Kit', '2026-09-28T11:25:00Z'),
+    ('ORD_2119', 'pay_XYZ2119', 'vikas.cheat@gmail.com', 42000, 'MacBook Air M3', '2026-09-29T16:40:00Z'),
+    ('ORD_2120', 'pay_XYZ2120', 'anita.fraud@protonmail.com', 1299, 'Sunglasses', '2026-09-30T08:55:00Z'),
+    ('ORD_2121', 'pay_XYZ2121', 'sunil.bad@gmail.com', 7800, 'Fitness Band', '2026-10-01T10:30:00Z'),
+    ('ORD_2122', 'pay_XYZ2122', 'deepa.cheat@outlook.com', 35000, 'Gaming Console', '2026-10-02T13:15:00Z'),
+    ('ORD_2123', 'pay_XYZ2123', 'akash.fraud@yahoo.com', 4999, 'Keyboard Mechanical', '2026-10-03T15:45:00Z'),
+    ('ORD_2124', 'pay_XYZ2124', 'rekha.scam@gmail.com', 6500, 'Air Fryer', '2026-10-04T09:40:00Z'),
+    ('ORD_2125', 'pay_XYZ2125', 'manoj.bad@protonmail.com', 1999, 'Wall Clock', '2026-10-05T12:20:00Z'),
+    ('ORD_2126', 'pay_XYZ2126', 'pooja.fraud@gmail.com', 28000, 'Smart TV 43"', '2026-10-06T14:50:00Z'),
+    ('ORD_2127', 'pay_XYZ2127', 'ravi.cheat@outlook.com', 1199, 'Earphones Wired', '2026-10-07T11:05:00Z'),
+    ('ORD_2128', 'pay_XYZ2128', 'suresh.scam@yahoo.com', 15999, 'Vacuum Cleaner', '2026-10-08T16:30:00Z'),
+    ('ORD_2129', 'pay_XYZ2129', 'kiran.fraud@gmail.com', 3499, 'Headphones Wireless', '2026-10-09T08:25:00Z'),
+    ('ORD_2130', 'pay_XYZ2130', 'nisha.bad@protonmail.com', 22000, 'Projector 4K', '2026-10-10T10:55:00Z')
+ON CONFLICT (order_id) DO UPDATE SET
+    payment_id = EXCLUDED.payment_id,
+    customer_email = EXCLUDED.customer_email,
+    amount_inr = EXCLUDED.amount_inr,
+    item_description = EXCLUDED.item_description,
+    created_at = EXCLUDED.created_at;
+
+
+-- 2. Shipping Logs
+INSERT INTO shipping_logs (tracking_id, order_id, courier_partner, delivery_status, signed_by, delivery_timestamp)
+VALUES
+    -- Legitimate
+    ('TRK_2101', 'ORD_2101', 'Delhivery', 'Lost_In_Transit', NULL, NULL),
+    ('TRK_2102', 'ORD_2102', 'BlueDart', 'Lost_In_Transit', NULL, NULL),
+    ('TRK_2103', 'ORD_2103', 'Ekart', 'Delivered', 'Left at Door (No Signature)', '2026-09-15T14:00:00Z'),
+    ('TRK_2104', 'ORD_2104', 'Delhivery', 'Damaged_In_Transit', NULL, NULL),
+    ('TRK_2105', 'ORD_2105', 'BlueDart', 'Returned_To_Sender', NULL, NULL),
+    ('TRK_2106', 'ORD_2106', 'Ekart', 'Lost_In_Transit', NULL, NULL),
+    ('TRK_2107', 'ORD_2107', 'Delhivery', 'Delivered', 'Signed by Customer', '2026-09-19T10:30:00Z'),
+    ('TRK_2108', 'ORD_2108', 'BlueDart', 'Delivered', 'Signed by Customer', '2026-09-20T12:00:00Z'),
+    ('TRK_2109', 'ORD_2109', 'Ekart', 'Lost_In_Transit', NULL, NULL),
+    ('TRK_2110', 'ORD_2110', 'Delhivery', 'Delivered', 'Left at Door (No Signature)', '2026-09-22T16:45:00Z'),
+    ('TRK_2111', 'ORD_2111', 'BlueDart', 'Lost_In_Transit', NULL, NULL),
+    ('TRK_2112', 'ORD_2112', 'Ekart', 'Damaged_In_Transit', NULL, NULL),
+    ('TRK_2113', 'ORD_2113', 'Delhivery', 'Delivered', 'Signed by Customer', '2026-09-24T14:15:00Z'),
+    ('TRK_2114', 'ORD_2114', 'BlueDart', 'Lost_In_Transit', NULL, NULL),
+    ('TRK_2115', 'ORD_2115', 'Ekart', 'Returned_To_Sender', NULL, NULL),
+
+    -- Fraudulent
+    ('TRK_2116', 'ORD_2116', 'Delhivery', 'Delivered', 'Self (OTP Verified)', '2026-09-28T11:00:00Z'),
+    ('TRK_2117', 'ORD_2117', 'BlueDart', 'Delivered', 'Self (OTP + Signature)', '2026-09-29T13:30:00Z'),
+    ('TRK_2118', 'ORD_2118', 'Ekart', 'Delivered', 'Photo Proof + Signature', '2026-09-30T15:00:00Z'),
+    ('TRK_2119', 'ORD_2119', 'Delhivery', 'Delivered', 'Signed by Customer', '2026-10-01T12:20:00Z'),
+    ('TRK_2120', 'ORD_2120', 'BlueDart', 'Delivered', 'Self (OTP Verified)', '2026-10-02T10:40:00Z'),
+    ('TRK_2121', 'ORD_2121', 'Ekart', 'Delivered', 'Self (OTP Verified)', '2026-10-03T14:10:00Z'),
+    ('TRK_2122', 'ORD_2122', 'Delhivery', 'Delivered', 'Self (OTP + Signature)', '2026-10-04T16:50:00Z'),
+    ('TRK_2123', 'ORD_2123', 'BlueDart', 'Delivered', 'Signed by Customer', '2026-10-05T11:30:00Z'),
+    ('TRK_2124', 'ORD_2124', 'Ekart', 'Delivered', 'Photo Proof + Signature', '2026-10-06T13:00:00Z'),
+    ('TRK_2125', 'ORD_2125', 'Delhivery', 'Delivered', 'Self (OTP Verified)', '2026-10-07T15:45:00Z'),
+    ('TRK_2126', 'ORD_2126', 'BlueDart', 'Delivered', 'Self (OTP + Signature)', '2026-10-08T12:15:00Z'),
+    ('TRK_2127', 'ORD_2127', 'Ekart', 'Delivered', 'Signed by Customer', '2026-10-09T10:00:00Z'),
+    ('TRK_2128', 'ORD_2128', 'Delhivery', 'Delivered', 'Self (OTP Verified)', '2026-10-10T14:30:00Z'),
+    ('TRK_2129', 'ORD_2129', 'BlueDart', 'Delivered', 'Photo Proof + Signature', '2026-10-11T11:20:00Z'),
+    ('TRK_2130', 'ORD_2130', 'Ekart', 'Delivered', 'Signed by Customer', '2026-10-12T13:50:00Z')
+ON CONFLICT (tracking_id) DO UPDATE SET
+    order_id = EXCLUDED.order_id,
+    courier_partner = EXCLUDED.courier_partner,
+    delivery_status = EXCLUDED.delivery_status,
+    signed_by = EXCLUDED.signed_by,
+    delivery_timestamp = EXCLUDED.delivery_timestamp;
+
+
+-- 3. Customer Communications
+INSERT INTO customer_communications (ticket_id, order_id, channel, message_transcript, logged_at)
+VALUES
+    -- Legitimate (many proactive)
+    ('TCK_2101', 'ORD_2101', 'Email', 'Customer: Order not delivered, tracking stuck for 5 days. Support: We will check with courier.', '2026-09-16T09:00:00Z'),
+    ('TCK_2102', 'ORD_2102', 'WhatsApp', 'Customer: Refrigerator never arrived, courier says lost. Support: We apologize, will process refund.', '2026-09-17T14:00:00Z'),
+    ('TCK_2103', 'ORD_2103', 'Email', 'Customer: Saree arrived but has a tear, photos attached. Support: We will refund or replace.', '2026-09-15T15:30:00Z'),
+    ('TCK_2104', 'ORD_2104', 'WhatsApp', 'Customer: Chair was damaged in shipping, legs cracked. Support: Please send photos, we will refund.', '2026-09-16T11:20:00Z'),
+    ('TCK_2105', 'ORD_2105', 'Email', 'Customer: Package returned to seller, I was out of town. Support: We will refund.', '2026-09-17T10:45:00Z'),
+    ('TCK_2106', 'ORD_2106', 'Email', 'Customer: Air purifier never delivered, tracking lost. Support: We are investigating.', '2026-09-18T12:30:00Z'),
+    ('TCK_2107', 'ORD_2107', 'WhatsApp', 'Customer: Backpack delivered but zip broken. Support: We will arrange refund.', '2026-09-19T14:10:00Z'),
+    ('TCK_2108', 'ORD_2108', 'Email', 'Customer: Espresso machine stopped working after 2 days. Support: Please send video, we will refund.', '2026-09-20T10:20:00Z'),
+    ('TCK_2109', 'ORD_2109', 'Email', 'Customer: Mouse pad never arrived. Support: We will refund.', '2026-09-21T09:00:00Z'),
+    ('TCK_2110', 'ORD_2110', 'WhatsApp', 'Customer: TV delivered but screen cracked, I refused delivery? Courier left anyway. Support: We will issue refund.', '2026-09-22T16:00:00Z'),
+    ('TCK_2111', 'ORD_2111', 'Email', 'Customer: Water bottle lost in transit. Support: Refund initiated.', '2026-09-23T11:30:00Z'),
+    ('TCK_2112', 'ORD_2112', 'Email', 'Customer: Washing machine damaged, drum is dented. Support: Refund will be processed.', '2026-09-24T15:45:00Z'),
+    ('TCK_2113', 'ORD_2113', 'WhatsApp', 'Customer: Cushion covers received but color faded. Support: We will refund.', '2026-09-25T13:10:00Z'),
+    ('TCK_2114', 'ORD_2114', 'Email', 'Customer: Soundbar lost in transit, no update. Support: We are checking.', '2026-09-26T10:00:00Z'),
+    ('TCK_2115', 'ORD_2115', 'Email', 'Customer: USB cable returned to sender, please refund. Support: Refund processed.', '2026-09-27T09:30:00Z'),
+
+    -- Fraudulent (mostly confirm receipt then dispute, or no contact)
+    ('TCK_2116', 'ORD_2116', 'Email', 'Customer: Power bank received, works great!', '2026-09-28T10:00:00Z'),
+    ('TCK_2117', 'ORD_2117', 'Email', 'Customer: iPhone delivered, thanks!', '2026-09-29T12:00:00Z'),
+    ('TCK_2118', 'ORD_2118', 'WhatsApp', 'Customer: Makeup kit received.', '2026-09-30T14:30:00Z'),
+    ('TCK_2119', 'ORD_2119', 'Email', 'Customer: MacBook arrived, setting up now.', '2026-10-01T11:00:00Z'),
+    ('TCK_2120', 'ORD_2120', 'WhatsApp', 'Customer: Sunglasses look nice.', '2026-10-02T13:20:00Z'),
+    ('TCK_2121', 'ORD_2121', 'Email', 'Customer: Fitness band received, synced.', '2026-10-03T15:10:00Z'),
+    ('TCK_2122', 'ORD_2122', 'Email', 'Customer: Console delivered, kids are happy.', '2026-10-04T17:00:00Z'),
+    ('TCK_2123', 'ORD_2123', 'WhatsApp', 'Customer: Keyboard received, typing this now.', '2026-10-05T12:40:00Z'),
+    ('TCK_2124', 'ORD_2124', 'Email', 'Customer: Air fryer works, made fries.', '2026-10-06T14:00:00Z'),
+    ('TCK_2125', 'ORD_2125', 'Email', 'Customer: Clock received, hung on wall.', '2026-10-07T16:20:00Z'),
+    ('TCK_2126', 'ORD_2126', 'WhatsApp', 'Customer: TV delivered, watching now.', '2026-10-08T13:30:00Z'),
+    ('TCK_2127', 'ORD_2127', 'Email', 'Customer: Earphones received, good sound.', '2026-10-09T11:00:00Z'),
+    ('TCK_2128', 'ORD_2128', 'Email', 'Customer: Vacuum cleaner delivered, tested.', '2026-10-10T15:10:00Z'),
+    ('TCK_2129', 'ORD_2129', 'WhatsApp', 'Customer: Headphones received, pairing.', '2026-10-11T12:30:00Z'),
+    ('TCK_2130', 'ORD_2130', 'Email', 'Customer: Projector delivered, installed.', '2026-10-12T14:20:00Z')
+ON CONFLICT (ticket_id) DO UPDATE SET
+    order_id = EXCLUDED.order_id,
+    channel = EXCLUDED.channel,
+    message_transcript = EXCLUDED.message_transcript,
+    logged_at = EXCLUDED.logged_at;
+
+
+-- 4. Risk Signals
+INSERT INTO risk_signals (order_id, ip_address, device_fingerprint, is_2fa_verified, account_age_days)
+VALUES
+    -- Legitimate (normal profiles)
+    ('ORD_2101', '106.51.20.44 (Pune, MH)', 'Windows Chrome 128.0.0.0', TRUE, 250),
+    ('ORD_2102', '117.201.4.12 (Mumbai, MH)', 'iPhone Safari 17.5', TRUE, 600),
+    ('ORD_2103', '203.192.11.7 (Chennai, TN)', 'Mac Chrome 128.0.0.0', TRUE, 400),
+    ('ORD_2104', '106.51.20.44 (Pune, MH)', 'Windows Chrome 128.0.0.0', TRUE, 350),
+    ('ORD_2105', '117.201.4.12 (Mumbai, MH)', 'Android Chrome 91.0.4472', TRUE, 180),
+    ('ORD_2106', '203.192.11.7 (Chennai, TN)', 'iPhone Safari 17.5', TRUE, 220),
+    ('ORD_2107', '106.51.20.44 (Pune, MH)', 'Windows Chrome 128.0.0.0', TRUE, 450),
+    ('ORD_2108', '117.201.4.12 (Mumbai, MH)', 'Mac Chrome 128.0.0.0', TRUE, 300),
+    ('ORD_2109', '203.192.11.7 (Chennai, TN)', 'Android Chrome 91.0.4472', TRUE, 150),
+    ('ORD_2110', '106.51.20.44 (Pune, MH)', 'Windows Chrome 128.0.0.0', TRUE, 500),
+    ('ORD_2111', '117.201.4.12 (Mumbai, MH)', 'iPhone Safari 17.5', TRUE, 280),
+    ('ORD_2112', '203.192.11.7 (Chennai, TN)', 'Mac Chrome 128.0.0.0', TRUE, 190),
+    ('ORD_2113', '106.51.20.44 (Pune, MH)', 'Android Chrome 91.0.4472', TRUE, 320),
+    ('ORD_2114', '117.201.4.12 (Mumbai, MH)', 'iPhone Safari 17.5', TRUE, 410),
+    ('ORD_2115', '203.192.11.7 (Chennai, TN)', 'Android Chrome 91.0.4472', TRUE, 75),
+
+    -- Fraudulent (suspicious signals)
+    ('ORD_2116', '45.115.87.33 (Unknown Region)', 'Android Chrome 89.0.4389', FALSE, 3),
+    ('ORD_2117', '185.220.101.4 (VPN Detected)', 'iPhone Safari 17.5', FALSE, 7),
+    ('ORD_2118', '89.187.162.5 (Unknown Region)', 'Android Chrome 91.0.4472', FALSE, 1),
+    ('ORD_2119', '106.51.20.44 (Pune, MH)', 'Windows Chrome 128.0.0.0', TRUE, 15),
+    ('ORD_2120', '203.192.11.7 (Chennai, TN)', 'Android Chrome 91.0.4472', FALSE, 2),
+    ('ORD_2121', '117.201.4.12 (Mumbai, MH)', 'iPhone Safari 17.5', TRUE, 45),
+    ('ORD_2122', '45.115.87.33 (Unknown Region)', 'Android Chrome 89.0.4389', FALSE, 5),
+    ('ORD_2123', '185.220.101.4 (VPN Detected)', 'Windows Chrome 128.0.0.0', FALSE, 10),
+    ('ORD_2124', '89.187.162.5 (Unknown Region)', 'Android Chrome 91.0.4472', FALSE, 8),
+    ('ORD_2125', '106.51.20.44 (Pune, MH)', 'Mac Chrome 128.0.0.0', TRUE, 20),
+    ('ORD_2126', '203.192.11.7 (Chennai, TN)', 'Android Chrome 91.0.4472', FALSE, 4),
+    ('ORD_2127', '117.201.4.12 (Mumbai, MH)', 'iPhone Safari 17.5', TRUE, 60),
+    ('ORD_2128', '45.115.87.33 (Unknown Region)', 'Android Chrome 89.0.4389', FALSE, 6),
+    ('ORD_2129', '185.220.101.4 (VPN Detected)', 'Android Chrome 91.0.4472', FALSE, 3),
+    ('ORD_2130', '89.187.162.5 (Unknown Region)', 'Windows Chrome 128.0.0.0', FALSE, 9)
+ON CONFLICT (order_id) DO UPDATE SET
+    ip_address = EXCLUDED.ip_address,
+    device_fingerprint = EXCLUDED.device_fingerprint,
+    is_2fa_verified = EXCLUDED.is_2fa_verified,
+    account_age_days = EXCLUDED.account_age_days;

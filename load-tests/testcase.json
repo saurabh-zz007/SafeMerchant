@@ -1,0 +1,3902 @@
+[
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2006",
+          "entity": "payment",
+          "amount": 249900,
+          "currency": "INR",
+          "base_amount": 249900,
+          "status": "captured",
+          "order_id": "ORD_2006",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Wireless Mouse",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "HDFC",
+          "wallet": null,
+          "vpa": null,
+          "email": "fraudster1@gmail.com",
+          "contact": "+919876543215",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1724140800
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2006",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2006",
+          "amount": 249900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1724745600,
+          "status": "open",
+          "evidence": {
+            "amount": 249900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1724140800
+        }
+      }
+    },
+    "created_at": 1724140800
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2007",
+          "entity": "payment",
+          "amount": 3500000,
+          "currency": "INR",
+          "base_amount": 3500000,
+          "status": "captured",
+          "order_id": "ORD_2007",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Gaming Laptop",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "ICICI",
+          "wallet": null,
+          "vpa": null,
+          "email": "fraudster2@outlook.com",
+          "contact": "+919876543216",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1724243400
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2007",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2007",
+          "amount": 3500000,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1724848200,
+          "status": "open",
+          "evidence": {
+            "amount": 3500000,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1724243400
+        }
+      }
+    },
+    "created_at": 1724243400
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2008",
+          "entity": "payment",
+          "amount": 499900,
+          "currency": "INR",
+          "base_amount": 499900,
+          "status": "captured",
+          "order_id": "ORD_2008",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Smart Watch",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "SBI",
+          "wallet": null,
+          "vpa": null,
+          "email": "fraudster3@yahoo.com",
+          "contact": "+919876543217",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1724310900
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2008",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2008",
+          "amount": 499900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1724915700,
+          "status": "open",
+          "evidence": {
+            "amount": 499900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1724310900
+        }
+      }
+    },
+    "created_at": 1724310900
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2009",
+          "entity": "payment",
+          "amount": 2800000,
+          "currency": "INR",
+          "base_amount": 2800000,
+          "status": "captured",
+          "order_id": "ORD_2009",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Designer Handbag",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "Axis",
+          "wallet": null,
+          "vpa": null,
+          "email": "fraudster4@gmail.com",
+          "contact": "+919876543218",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1724377500
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2009",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2009",
+          "amount": 2800000,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_unacceptable",
+          "respond_by": 1724982300,
+          "status": "open",
+          "evidence": {
+            "amount": 2800000,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1724377500
+        }
+      }
+    },
+    "created_at": 1724377500
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2010",
+          "entity": "payment",
+          "amount": 349900,
+          "currency": "INR",
+          "base_amount": 349900,
+          "status": "captured",
+          "order_id": "ORD_2010",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Bluetooth Speaker",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "Kotak",
+          "wallet": null,
+          "vpa": null,
+          "email": "fraudster5@protonmail.com",
+          "contact": "+919876543219",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1724444400
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2010",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2010",
+          "amount": 349900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "fraud",
+          "respond_by": 1725049200,
+          "status": "open",
+          "evidence": {
+            "amount": 349900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "fraud",
+          "created_at": 1724444400
+        }
+      }
+    },
+    "created_at": 1724444400
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2011",
+          "entity": "payment",
+          "amount": 199900,
+          "currency": "INR",
+          "base_amount": 199900,
+          "status": "captured",
+          "order_id": "ORD_2011",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Fitness Tracker",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "HDFC",
+          "wallet": null,
+          "vpa": null,
+          "email": "fraudster6@mail.com",
+          "contact": "+919876543220",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1724511600
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2011",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2011",
+          "amount": 199900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1725116400,
+          "status": "open",
+          "evidence": {
+            "amount": 199900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1724511600
+        }
+      }
+    },
+    "created_at": 1724511600
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2012",
+          "entity": "payment",
+          "amount": 1850000,
+          "currency": "INR",
+          "base_amount": 1850000,
+          "status": "captured",
+          "order_id": "ORD_2012",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Camera Lens",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "ICICI",
+          "wallet": null,
+          "vpa": null,
+          "email": "fraudster7@gmail.com",
+          "contact": "+919876543221",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1724578200
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2012",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2012",
+          "amount": 1850000,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1725183000,
+          "status": "open",
+          "evidence": {
+            "amount": 1850000,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1724578200
+        }
+      }
+    },
+    "created_at": 1724578200
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2013",
+          "entity": "payment",
+          "amount": 1250000,
+          "currency": "INR",
+          "base_amount": 1250000,
+          "status": "captured",
+          "order_id": "ORD_2013",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Coffee Machine",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "SBI",
+          "wallet": null,
+          "vpa": null,
+          "email": "fraudster8@outlook.com",
+          "contact": "+919876543222",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1724644800
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2013",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2013",
+          "amount": 1250000,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1725249600,
+          "status": "open",
+          "evidence": {
+            "amount": 1250000,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1724644800
+        }
+      }
+    },
+    "created_at": 1724644800
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2014",
+          "entity": "payment",
+          "amount": 699900,
+          "currency": "INR",
+          "base_amount": 699900,
+          "status": "captured",
+          "order_id": "ORD_2014",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Headphones",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "Axis",
+          "wallet": null,
+          "vpa": null,
+          "email": "fraudster9@gmail.com",
+          "contact": "+919876543223",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1724711400
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2014",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2014",
+          "amount": 699900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1725316200,
+          "status": "open",
+          "evidence": {
+            "amount": 699900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1724711400
+        }
+      }
+    },
+    "created_at": 1724711400
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2015",
+          "entity": "payment",
+          "amount": 4500000,
+          "currency": "INR",
+          "base_amount": 4500000,
+          "status": "captured",
+          "order_id": "ORD_2015",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Smartphone",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "HDFC",
+          "wallet": null,
+          "vpa": null,
+          "email": "fraudster10@gmail.com",
+          "contact": "+919876543224",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1724778000
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2015",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2015",
+          "amount": 4500000,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1725382800,
+          "status": "open",
+          "evidence": {
+            "amount": 4500000,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1724778000
+        }
+      }
+    },
+    "created_at": 1724778000
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2016",
+          "entity": "payment",
+          "amount": 189900,
+          "currency": "INR",
+          "base_amount": 189900,
+          "status": "captured",
+          "order_id": "ORD_2016",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "USB-C Hub 7-in-1",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "HDFC",
+          "wallet": null,
+          "vpa": null,
+          "email": "ananya.iyer@gmail.com",
+          "contact": "+919876543225",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1725143400
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2016",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2016",
+          "amount": 189900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1725748200,
+          "status": "open",
+          "evidence": {
+            "amount": 189900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1725143400
+        }
+      }
+    },
+    "created_at": 1725143400
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2017",
+          "entity": "payment",
+          "amount": 3299900,
+          "currency": "INR",
+          "base_amount": 3299900,
+          "status": "captured",
+          "order_id": "ORD_2017",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Sony Alpha Camera",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "ICICI",
+          "wallet": null,
+          "vpa": null,
+          "email": "arjun.nair@outlook.com",
+          "contact": "+919876543226",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1725248700
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2017",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2017",
+          "amount": 3299900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1725853500,
+          "status": "open",
+          "evidence": {
+            "amount": 3299900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1725248700
+        }
+      }
+    },
+    "created_at": 1725248700
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2018",
+          "entity": "payment",
+          "amount": 249900,
+          "currency": "INR",
+          "base_amount": 249900,
+          "status": "captured",
+          "order_id": "ORD_2018",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Ceramic Dinner Set",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "SBI",
+          "wallet": null,
+          "vpa": null,
+          "email": "kavya.reddy@yahoo.com",
+          "contact": "+919876543227",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1725321600
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2018",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2018",
+          "amount": 249900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_unacceptable",
+          "respond_by": 1725926400,
+          "status": "open",
+          "evidence": {
+            "amount": 249900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1725321600
+        }
+      }
+    },
+    "created_at": 1725321600
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2019",
+          "entity": "payment",
+          "amount": 2750000,
+          "currency": "INR",
+          "base_amount": 2750000,
+          "status": "captured",
+          "order_id": "ORD_2019",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "MacBook Air Accessory Kit",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "Axis",
+          "wallet": null,
+          "vpa": null,
+          "email": "vikram.singh@gmail.com",
+          "contact": "+919876543228",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1725418800
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2019",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2019",
+          "amount": 2750000,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_unacceptable",
+          "respond_by": 1726023600,
+          "status": "open",
+          "evidence": {
+            "amount": 2750000,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1725418800
+        }
+      }
+    },
+    "created_at": 1725418800
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2020",
+          "entity": "payment",
+          "amount": 159900,
+          "currency": "INR",
+          "base_amount": 159900,
+          "status": "captured",
+          "order_id": "ORD_2020",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Yoga Mat Premium",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "Kotak",
+          "wallet": null,
+          "vpa": null,
+          "email": "meera.pillai@protonmail.com",
+          "contact": "+919876543229",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1725480000
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2020",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2020",
+          "amount": 159900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1726084800,
+          "status": "open",
+          "evidence": {
+            "amount": 159900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1725480000
+        }
+      }
+    },
+    "created_at": 1725480000
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2021",
+          "entity": "payment",
+          "amount": 899900,
+          "currency": "INR",
+          "base_amount": 899900,
+          "status": "captured",
+          "order_id": "ORD_2021",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Mechanical Keyboard",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "HDFC",
+          "wallet": null,
+          "vpa": null,
+          "email": "rohan.gupta@gmail.com",
+          "contact": "+919876543230",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1725546000
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2021",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2021",
+          "amount": 899900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1726150800,
+          "status": "open",
+          "evidence": {
+            "amount": 899900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1725546000
+        }
+      }
+    },
+    "created_at": 1725546000
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2022",
+          "entity": "payment",
+          "amount": 79900,
+          "currency": "INR",
+          "base_amount": 79900,
+          "status": "captured",
+          "order_id": "ORD_2022",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Antivirus 1-Year License",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "ICICI",
+          "wallet": null,
+          "vpa": null,
+          "email": "divya.krishnan@outlook.com",
+          "contact": "+919876543231",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1725612000
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2022",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2022",
+          "amount": 79900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1726216800,
+          "status": "open",
+          "evidence": {
+            "amount": 79900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1725612000
+        }
+      }
+    },
+    "created_at": 1725612000
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2023",
+          "entity": "payment",
+          "amount": 4200000,
+          "currency": "INR",
+          "base_amount": 4200000,
+          "status": "captured",
+          "order_id": "ORD_2023",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "4K Drone with Camera",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "SBI",
+          "wallet": null,
+          "vpa": null,
+          "email": "amit.verma@gmail.com",
+          "contact": "+919876543232",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1725678000
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2023",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2023",
+          "amount": 4200000,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_unacceptable",
+          "respond_by": 1726282800,
+          "status": "open",
+          "evidence": {
+            "amount": 4200000,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1725678000
+        }
+      }
+    },
+    "created_at": 1725678000
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2024",
+          "entity": "payment",
+          "amount": 219900,
+          "currency": "INR",
+          "base_amount": 219900,
+          "status": "captured",
+          "order_id": "ORD_2024",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Glass Storage Containers Set",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "Axis",
+          "wallet": null,
+          "vpa": null,
+          "email": "sneha.patil@yahoo.com",
+          "contact": "+919876543233",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1725744000
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2024",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2024",
+          "amount": 219900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_unacceptable",
+          "respond_by": 1726348800,
+          "status": "open",
+          "evidence": {
+            "amount": 219900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1725744000
+        }
+      }
+    },
+    "created_at": 1725744000
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2025",
+          "entity": "payment",
+          "amount": 499900,
+          "currency": "INR",
+          "base_amount": 499900,
+          "status": "captured",
+          "order_id": "ORD_2025",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Tablet Stand + Bluetooth Keyboard",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "HDFC",
+          "wallet": null,
+          "vpa": null,
+          "email": "rahul.kumar@gmail.com",
+          "contact": "+919876543234",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1725810000
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2025",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2025",
+          "amount": 499900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1726414800,
+          "status": "open",
+          "evidence": {
+            "amount": 499900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1725810000
+        }
+      }
+    },
+    "created_at": 1725810000
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2101",
+          "entity": "payment",
+          "amount": 149900,
+          "currency": "INR",
+          "base_amount": 149900,
+          "status": "captured",
+          "order_id": "ORD_2101",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Phone Charger 65W",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "HDFC",
+          "wallet": null,
+          "vpa": null,
+          "email": "aisha.khan@gmail.com",
+          "contact": "+919876543235",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1726012800
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2101",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2101",
+          "amount": 149900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1726617600,
+          "status": "open",
+          "evidence": {
+            "amount": 149900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1726012800
+        }
+      }
+    },
+    "created_at": 1726012800
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2102",
+          "entity": "payment",
+          "amount": 2999900,
+          "currency": "INR",
+          "base_amount": 2999900,
+          "status": "captured",
+          "order_id": "ORD_2102",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Refrigerator 180L",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "ICICI",
+          "wallet": null,
+          "vpa": null,
+          "email": "bimal.shah@outlook.com",
+          "contact": "+919876543236",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1726099200
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2102",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2102",
+          "amount": 2999900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1726704000,
+          "status": "open",
+          "evidence": {
+            "amount": 2999900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1726099200
+        }
+      }
+    },
+    "created_at": 1726099200
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2103",
+          "entity": "payment",
+          "amount": 349900,
+          "currency": "INR",
+          "base_amount": 349900,
+          "status": "captured",
+          "order_id": "ORD_2103",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Saree Silk Premium",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "SBI",
+          "wallet": null,
+          "vpa": null,
+          "email": "chitra.rao@yahoo.com",
+          "contact": "+919876543237",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1726185600
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2103",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2103",
+          "amount": 349900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_unacceptable",
+          "respond_by": 1726790400,
+          "status": "open",
+          "evidence": {
+            "amount": 349900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1726185600
+        }
+      }
+    },
+    "created_at": 1726185600
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2104",
+          "entity": "payment",
+          "amount": 4500000,
+          "currency": "INR",
+          "base_amount": 4500000,
+          "status": "captured",
+          "order_id": "ORD_2104",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Office Chair Ergonomic",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "Axis",
+          "wallet": null,
+          "vpa": null,
+          "email": "dinesh.patil@gmail.com",
+          "contact": "+919876543238",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1726272000
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2104",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2104",
+          "amount": 4500000,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_unacceptable",
+          "respond_by": 1726876800,
+          "status": "open",
+          "evidence": {
+            "amount": 4500000,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1726272000
+        }
+      }
+    },
+    "created_at": 1726272000
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2105",
+          "entity": "payment",
+          "amount": 89900,
+          "currency": "INR",
+          "base_amount": 89900,
+          "status": "captured",
+          "order_id": "ORD_2105",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Notebook Set (3 pcs)",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "Kotak",
+          "wallet": null,
+          "vpa": null,
+          "email": "esha.gupta@protonmail.com",
+          "contact": "+919876543239",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1726358400
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2105",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2105",
+          "amount": 89900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1726963200,
+          "status": "open",
+          "evidence": {
+            "amount": 89900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1726358400
+        }
+      }
+    },
+    "created_at": 1726358400
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2106",
+          "entity": "payment",
+          "amount": 1999900,
+          "currency": "INR",
+          "base_amount": 1999900,
+          "status": "captured",
+          "order_id": "ORD_2106",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Air Purifier",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "HDFC",
+          "wallet": null,
+          "vpa": null,
+          "email": "farhan.ali@gmail.com",
+          "contact": "+919876543240",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1726444800
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2106",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2106",
+          "amount": 1999900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1727049600,
+          "status": "open",
+          "evidence": {
+            "amount": 1999900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1726444800
+        }
+      }
+    },
+    "created_at": 1726444800
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2107",
+          "entity": "payment",
+          "amount": 599900,
+          "currency": "INR",
+          "base_amount": 599900,
+          "status": "captured",
+          "order_id": "ORD_2107",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Backpack Laptop 15.6\"",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "ICICI",
+          "wallet": null,
+          "vpa": null,
+          "email": "gauri.menon@outlook.com",
+          "contact": "+919876543241",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1726531200
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2107",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2107",
+          "amount": 599900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_unacceptable",
+          "respond_by": 1727136000,
+          "status": "open",
+          "evidence": {
+            "amount": 599900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1726531200
+        }
+      }
+    },
+    "created_at": 1726531200
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2108",
+          "entity": "payment",
+          "amount": 1200000,
+          "currency": "INR",
+          "base_amount": 1200000,
+          "status": "captured",
+          "order_id": "ORD_2108",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Espresso Machine",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "SBI",
+          "wallet": null,
+          "vpa": null,
+          "email": "harish.kumar@gmail.com",
+          "contact": "+919876543242",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1726617600
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2108",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2108",
+          "amount": 1200000,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_unacceptable",
+          "respond_by": 1727222400,
+          "status": "open",
+          "evidence": {
+            "amount": 1200000,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1726617600
+        }
+      }
+    },
+    "created_at": 1726617600
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2109",
+          "entity": "payment",
+          "amount": 79900,
+          "currency": "INR",
+          "base_amount": 79900,
+          "status": "captured",
+          "order_id": "ORD_2109",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Mouse Pad XL",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "Axis",
+          "wallet": null,
+          "vpa": null,
+          "email": "isha.desai@yahoo.com",
+          "contact": "+919876543243",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1726704000
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2109",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2109",
+          "amount": 79900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1727308800,
+          "status": "open",
+          "evidence": {
+            "amount": 79900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1726704000
+        }
+      }
+    },
+    "created_at": 1726704000
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2110",
+          "entity": "payment",
+          "amount": 7800000,
+          "currency": "INR",
+          "base_amount": 7800000,
+          "status": "captured",
+          "order_id": "ORD_2110",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "OLED TV 55\"",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "HDFC",
+          "wallet": null,
+          "vpa": null,
+          "email": "jatin.mehta@gmail.com",
+          "contact": "+919876543244",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1726790400
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2110",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2110",
+          "amount": 7800000,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_unacceptable",
+          "respond_by": 1727395200,
+          "status": "open",
+          "evidence": {
+            "amount": 7800000,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1726790400
+        }
+      }
+    },
+    "created_at": 1726790400
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2111",
+          "entity": "payment",
+          "amount": 249900,
+          "currency": "INR",
+          "base_amount": 249900,
+          "status": "captured",
+          "order_id": "ORD_2111",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Water Bottle Steel",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "ICICI",
+          "wallet": null,
+          "vpa": null,
+          "email": "kavita.nair@protonmail.com",
+          "contact": "+919876543245",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1726876800
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2111",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2111",
+          "amount": 249900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1727481600,
+          "status": "open",
+          "evidence": {
+            "amount": 249900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1726876800
+        }
+      }
+    },
+    "created_at": 1726876800
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2112",
+          "entity": "payment",
+          "amount": 3499900,
+          "currency": "INR",
+          "base_amount": 3499900,
+          "status": "captured",
+          "order_id": "ORD_2112",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Washing Machine",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "SBI",
+          "wallet": null,
+          "vpa": null,
+          "email": "lalit.joshi@gmail.com",
+          "contact": "+919876543246",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1726963200
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2112",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2112",
+          "amount": 3499900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_unacceptable",
+          "respond_by": 1727568000,
+          "status": "open",
+          "evidence": {
+            "amount": 3499900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1726963200
+        }
+      }
+    },
+    "created_at": 1726963200
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2113",
+          "entity": "payment",
+          "amount": 179900,
+          "currency": "INR",
+          "base_amount": 179900,
+          "status": "captured",
+          "order_id": "ORD_2113",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Cushion Covers (4 pcs)",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "Axis",
+          "wallet": null,
+          "vpa": null,
+          "email": "meena.iyer@outlook.com",
+          "contact": "+919876543247",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1727049600
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2113",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2113",
+          "amount": 179900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_unacceptable",
+          "respond_by": 1727654400,
+          "status": "open",
+          "evidence": {
+            "amount": 179900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1727049600
+        }
+      }
+    },
+    "created_at": 1727049600
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2114",
+          "entity": "payment",
+          "amount": 899900,
+          "currency": "INR",
+          "base_amount": 899900,
+          "status": "captured",
+          "order_id": "ORD_2114",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Soundbar 2.1",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "HDFC",
+          "wallet": null,
+          "vpa": null,
+          "email": "naveen.reddy@gmail.com",
+          "contact": "+919876543248",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1727136000
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2114",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2114",
+          "amount": 899900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1727740800,
+          "status": "open",
+          "evidence": {
+            "amount": 899900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1727136000
+        }
+      }
+    },
+    "created_at": 1727136000
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2115",
+          "entity": "payment",
+          "amount": 49900,
+          "currency": "INR",
+          "base_amount": 49900,
+          "status": "captured",
+          "order_id": "ORD_2115",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "USB Cable 2m",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "Kotak",
+          "wallet": null,
+          "vpa": null,
+          "email": "om.prakash@yahoo.com",
+          "contact": "+919876543249",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1727222400
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2115",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2115",
+          "amount": 49900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1727827200,
+          "status": "open",
+          "evidence": {
+            "amount": 49900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1727222400
+        }
+      }
+    },
+    "created_at": 1727222400
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2116",
+          "entity": "payment",
+          "amount": 199900,
+          "currency": "INR",
+          "base_amount": 199900,
+          "status": "captured",
+          "order_id": "ORD_2116",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Power Bank 10000mAh",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "HDFC",
+          "wallet": null,
+          "vpa": null,
+          "email": "priya.fraud@gmail.com",
+          "contact": "+919876543250",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1727308800
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2116",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2116",
+          "amount": 199900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1727913600,
+          "status": "open",
+          "evidence": {
+            "amount": 199900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1727308800
+        }
+      }
+    },
+    "created_at": 1727308800
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2117",
+          "entity": "payment",
+          "amount": 5500000,
+          "currency": "INR",
+          "base_amount": 5500000,
+          "status": "captured",
+          "order_id": "ORD_2117",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "iPhone 15 Pro",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "ICICI",
+          "wallet": null,
+          "vpa": null,
+          "email": "rohit.fraudster@outlook.com",
+          "contact": "+919876543251",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1727395200
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2117",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2117",
+          "amount": 5500000,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1728000000,
+          "status": "open",
+          "evidence": {
+            "amount": 5500000,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1727395200
+        }
+      }
+    },
+    "created_at": 1727395200
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2118",
+          "entity": "payment",
+          "amount": 299900,
+          "currency": "INR",
+          "base_amount": 299900,
+          "status": "captured",
+          "order_id": "ORD_2118",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Makeup Kit",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "SBI",
+          "wallet": null,
+          "vpa": null,
+          "email": "sneha.scam@yahoo.com",
+          "contact": "+919876543252",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1727481600
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2118",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2118",
+          "amount": 299900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1728086400,
+          "status": "open",
+          "evidence": {
+            "amount": 299900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1727481600
+        }
+      }
+    },
+    "created_at": 1727481600
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2119",
+          "entity": "payment",
+          "amount": 4200000,
+          "currency": "INR",
+          "base_amount": 4200000,
+          "status": "captured",
+          "order_id": "ORD_2119",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "MacBook Air M3",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "Axis",
+          "wallet": null,
+          "vpa": null,
+          "email": "vikas.cheat@gmail.com",
+          "contact": "+919876543253",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1727568000
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2119",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2119",
+          "amount": 4200000,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1728172800,
+          "status": "open",
+          "evidence": {
+            "amount": 4200000,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1727568000
+        }
+      }
+    },
+    "created_at": 1727568000
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2120",
+          "entity": "payment",
+          "amount": 129900,
+          "currency": "INR",
+          "base_amount": 129900,
+          "status": "captured",
+          "order_id": "ORD_2120",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Sunglasses",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "Kotak",
+          "wallet": null,
+          "vpa": null,
+          "email": "anita.fraud@protonmail.com",
+          "contact": "+919876543254",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1727654400
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2120",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2120",
+          "amount": 129900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "fraud",
+          "respond_by": 1728259200,
+          "status": "open",
+          "evidence": {
+            "amount": 129900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "fraud",
+          "created_at": 1727654400
+        }
+      }
+    },
+    "created_at": 1727654400
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2121",
+          "entity": "payment",
+          "amount": 780000,
+          "currency": "INR",
+          "base_amount": 780000,
+          "status": "captured",
+          "order_id": "ORD_2121",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Fitness Band",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "HDFC",
+          "wallet": null,
+          "vpa": null,
+          "email": "sunil.bad@gmail.com",
+          "contact": "+919876543255",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1727740800
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2121",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2121",
+          "amount": 780000,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1728345600,
+          "status": "open",
+          "evidence": {
+            "amount": 780000,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1727740800
+        }
+      }
+    },
+    "created_at": 1727740800
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2122",
+          "entity": "payment",
+          "amount": 3500000,
+          "currency": "INR",
+          "base_amount": 3500000,
+          "status": "captured",
+          "order_id": "ORD_2122",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Gaming Console",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "ICICI",
+          "wallet": null,
+          "vpa": null,
+          "email": "deepa.cheat@outlook.com",
+          "contact": "+919876543256",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1727827200
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2122",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2122",
+          "amount": 3500000,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1728432000,
+          "status": "open",
+          "evidence": {
+            "amount": 3500000,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1727827200
+        }
+      }
+    },
+    "created_at": 1727827200
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2123",
+          "entity": "payment",
+          "amount": 499900,
+          "currency": "INR",
+          "base_amount": 499900,
+          "status": "captured",
+          "order_id": "ORD_2123",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Keyboard Mechanical",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "SBI",
+          "wallet": null,
+          "vpa": null,
+          "email": "akash.fraud@yahoo.com",
+          "contact": "+919876543257",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1727913600
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2123",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2123",
+          "amount": 499900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1728518400,
+          "status": "open",
+          "evidence": {
+            "amount": 499900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1727913600
+        }
+      }
+    },
+    "created_at": 1727913600
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2124",
+          "entity": "payment",
+          "amount": 650000,
+          "currency": "INR",
+          "base_amount": 650000,
+          "status": "captured",
+          "order_id": "ORD_2124",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Air Fryer",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "Axis",
+          "wallet": null,
+          "vpa": null,
+          "email": "rekha.scam@gmail.com",
+          "contact": "+919876543258",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1728000000
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2124",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2124",
+          "amount": 650000,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "fraud",
+          "respond_by": 1728604800,
+          "status": "open",
+          "evidence": {
+            "amount": 650000,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "fraud",
+          "created_at": 1728000000
+        }
+      }
+    },
+    "created_at": 1728000000
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2125",
+          "entity": "payment",
+          "amount": 199900,
+          "currency": "INR",
+          "base_amount": 199900,
+          "status": "captured",
+          "order_id": "ORD_2125",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Wall Clock",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "HDFC",
+          "wallet": null,
+          "vpa": null,
+          "email": "manoj.bad@protonmail.com",
+          "contact": "+919876543259",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1728086400
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2125",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2125",
+          "amount": 199900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1728691200,
+          "status": "open",
+          "evidence": {
+            "amount": 199900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1728086400
+        }
+      }
+    },
+    "created_at": 1728086400
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2126",
+          "entity": "payment",
+          "amount": 2800000,
+          "currency": "INR",
+          "base_amount": 2800000,
+          "status": "captured",
+          "order_id": "ORD_2126",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Smart TV 43\"",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "ICICI",
+          "wallet": null,
+          "vpa": null,
+          "email": "pooja.fraud@gmail.com",
+          "contact": "+919876543260",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1728172800
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2126",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2126",
+          "amount": 2800000,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1728777600,
+          "status": "open",
+          "evidence": {
+            "amount": 2800000,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1728172800
+        }
+      }
+    },
+    "created_at": 1728172800
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2127",
+          "entity": "payment",
+          "amount": 119900,
+          "currency": "INR",
+          "base_amount": 119900,
+          "status": "captured",
+          "order_id": "ORD_2127",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Earphones Wired",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "SBI",
+          "wallet": null,
+          "vpa": null,
+          "email": "ravi.cheat@outlook.com",
+          "contact": "+919876543261",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1728259200
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2127",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2127",
+          "amount": 119900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1728864000,
+          "status": "open",
+          "evidence": {
+            "amount": 119900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1728259200
+        }
+      }
+    },
+    "created_at": 1728259200
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2128",
+          "entity": "payment",
+          "amount": 1599900,
+          "currency": "INR",
+          "base_amount": 1599900,
+          "status": "captured",
+          "order_id": "ORD_2128",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Vacuum Cleaner",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "Axis",
+          "wallet": null,
+          "vpa": null,
+          "email": "suresh.scam@yahoo.com",
+          "contact": "+919876543262",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1728345600
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2128",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2128",
+          "amount": 1599900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "fraud",
+          "respond_by": 1728950400,
+          "status": "open",
+          "evidence": {
+            "amount": 1599900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "fraud",
+          "created_at": 1728345600
+        }
+      }
+    },
+    "created_at": 1728345600
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2129",
+          "entity": "payment",
+          "amount": 349900,
+          "currency": "INR",
+          "base_amount": 349900,
+          "status": "captured",
+          "order_id": "ORD_2129",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Headphones Wireless",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "HDFC",
+          "wallet": null,
+          "vpa": null,
+          "email": "kiran.fraud@gmail.com",
+          "contact": "+919876543263",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1728432000
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2129",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2129",
+          "amount": 349900,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1729036800,
+          "status": "open",
+          "evidence": {
+            "amount": 349900,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1728432000
+        }
+      }
+    },
+    "created_at": 1728432000
+  },
+  {
+    "entity": "event",
+    "account_id": "acc_CFvOKjkTwf3GQy",
+    "event": "payment.dispute.created",
+    "contains": [
+      "payment",
+      "dispute"
+    ],
+    "payload": {
+      "payment": {
+        "entity": {
+          "id": "pay_XYZ2130",
+          "entity": "payment",
+          "amount": 2200000,
+          "currency": "INR",
+          "base_amount": 2200000,
+          "status": "captured",
+          "order_id": "ORD_2130",
+          "invoice_id": null,
+          "international": false,
+          "method": "card",
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "refund_status": null,
+          "captured": true,
+          "description": "Projector 4K",
+          "card_id": "card_EADblPSDnnk5ZG",
+          "bank": "ICICI",
+          "wallet": null,
+          "vpa": null,
+          "email": "nisha.bad@protonmail.com",
+          "contact": "+919876543264",
+          "notes": [],
+          "fee": 0,
+          "tax": 0,
+          "error_code": null,
+          "error_description": null,
+          "error_source": null,
+          "error_step": null,
+          "error_reason": null,
+          "acquirer_data": {},
+          "created_at": 1728518400
+        }
+      },
+      "dispute": {
+        "entity": {
+          "id": "disp_2130",
+          "entity": "dispute",
+          "payment_id": "pay_XYZ2130",
+          "amount": 2200000,
+          "currency": "INR",
+          "amount_deducted": 0,
+          "reason_code": "product_not_received",
+          "respond_by": 1729123200,
+          "status": "open",
+          "evidence": {
+            "amount": 2200000,
+            "summary": null,
+            "shipping_proof": null,
+            "billing_proof": null,
+            "cancellation_proof": null,
+            "customer_communication": null,
+            "proof_of_service": null,
+            "explanation_letter": null,
+            "refund_confirmation": null,
+            "access_activity_log": null,
+            "refund_cancellation_policy": null,
+            "term_and_conditions": null,
+            "others": null,
+            "submitted_at": null
+          },
+          "phase": "chargeback",
+          "created_at": 1728518400
+        }
+      }
+    },
+    "created_at": 1728518400
+  }
+]
