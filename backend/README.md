@@ -1,166 +1,279 @@
 # SafeMerchant Backend — Autonomous AI Risk Manager
 
-> Defense-only agentic system for automated chargeback dispute resolution.
+> Defense-only agentic system for automated chargeback dispute resolution.  
 > Built for the Razorpay Buildathon (Track 2).
 
-## Quick Start
+For full system architecture, sequence flows, and relational schemas, refer to:
+- **[Full System Architecture & Flow](https://drive.google.com/file/d/1ejqt-4eVz13VRtZeBPR4Z0wa2-JjCo5Z/view?usp=sharing)**
+- **[Backend Architecture Deep-Dive](https://drive.google.com/file/d/1WYrjE-iE4mFtOzSrwoQBndK_t89-MoAU/view?usp=sharing)**
+
+---
+
+## ⚡ Local vs. Live Cloud Server
+
+The SafeMerchant backend can be run locally or accessed via the hosted live cloud server:
+
+- **Local Server**: `http://localhost:8000` (REST) | `ws://localhost:8000/ws/dashboard` (WebSocket)
+- **Live Cloud Server**: `https://safemerchant.onrender.com` (REST) | `wss://safemerchant.onrender.com/ws/dashboard` (WebSocket)
+
+> [!TIP]
+> **Zero Local Setup Needed for Testing:**  
+> If you only want to explore the Flutter dashboard and run test disputes, you do not need to set up Python or PostgreSQL locally. Run the frontend, open **Developer Options** (Passkey: `admin`), and toggle the environment switch to **Cloud Server**.
+
+---
+
+## Quick Start (Local Backend)
 
 ### 1. Prerequisites
 
 - Python 3.11+
-- PostgreSQL 14+ (running locally or via Docker)
+- PostgreSQL 14+ (local instance or cloud database such as Supabase)
 
-### 2. Setup
+### 2. Virtual Environment & Dependencies
 
 ```bash
 # Create virtual environment
 python -m venv .venv
-.venv\Scripts\activate  # Windows
+
+# Activate environment
+# On Windows (PowerShell):
+.\.venv\Scripts\Activate.ps1
+# On macOS/Linux:
+source .venv/bin/activate
 
 # Install dependencies
-pip install -e .
-
-# Copy environment config
-copy .env.example .env
-# Edit .env with your database URL and API keys
+pip install -r requirements.txt
 ```
 
-### 3. Database Setup
+### 3. Environment Variables
 
-```bash
-# Create the database
-psql -U postgres -c "CREATE DATABASE safemerchant;"
+Create `.env` in `backend/`:
 
-# Run the migration (schema + seed data)
-psql -U postgres -d safemerchant -f migrations/001_initial_schema.sql
+```env
+# ── Database Connection ──
+DATABASE_URL=postgresql+asyncpg://<user>:<password>@<host>:<port>/<dbname>
+
+# ── LLM Provider (OpenRouter) ──
+OPENROUTER_API_KEY=your_openrouter_api_key
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_MODEL_NAME=openai/gpt-4o
+
+# ── Razorpay API Credentials ──
+RAZORPAY_KEY_ID=your_razorpay_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+RAZORPAY_WEBHOOK_SECRET=whsec_8kQ2vN9xZmR7pL4tY6bJ3cF1dK5wA0hE
+
+# ── Agent Gate Thresholds ──
+AUTO_SUBMIT_SCORE_THRESHOLD=0.85
+AUTO_SUBMIT_AMOUNT_CEILING_INR=10000
+AUTO_REFUND_AMOUNT_CEILING_INR=10000
+
+# ── Supabase Storage (Evidence PDFs) ──
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+SUPABASE_STORAGE_BUCKET=evidence-pdfs
+MAX_CONCURRENT_EVIDENCE_JOBS=5
+
+# ── Server ──
+HOST=0.0.0.0
+PORT=8000
+DEBUG=true
 ```
 
-### 4. Run the Server
+### 4. Database Setup & Seed Data
 
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# 1. Run Alembic migrations to create the schema and checkpoint tables
+alembic upgrade head
+
+# 2. Insert canonical test scenario orders (ORD_2001 to ORD_2005)
+psql -U postgres -d safemerchant -f SeedDatasheetSQLformat.txt
 ```
 
-### 5. Test the Webhook
+### 5. Run the Server
+
+Start the backend using `run.py` (which configures the Windows `SelectorEventLoop` for psycopg async compatibility):
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/webhook \
-  -H "Content-Type: application/json" \
-  -d '{
-    "event": "payment.dispute.created",
-    "payload": {
+python run.py
+```
+
+*(Or via Uvicorn directly: `uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload`)*
+
+> [!NOTE]
+> The background `EvidenceWorkerPool` and `PeriodicBreakdownWorker` start automatically inside FastAPI's async lifespan. No separate Celery or Redis worker process is required.
+
+---
+
+## Triggering & Testing Dispute Webhooks
+
+The backend strictly verifies Razorpay's HMAC-SHA256 signature on `POST /api/v1/webhook`.  
+**Configured Test Secret**: `whsec_8kQ2vN9xZmR7pL4tY6bJ3cF1dK5wA0hE`
+
+You can test disputes through any of the following methods:
+
+### Method 1: Directly via Frontend UI (Developer Options)
+The easiest way to generate a dispute without writing curl scripts:
+1. Open the Flutter dashboard and navigate to **Developer Options** in the sidebar.
+2. Enter passkey: **`admin`**.
+3. Use the **Synthetic Scenario Builder** to set amount, delivery status, customer chat transcripts, 2FA, and reason code.
+4. Click **Dispatch Test Dispute**. The backend creates operational records, signs the HMAC webhook internally, and dispatches it into the live pipeline.
+
+---
+
+### Method 2: Windows PowerShell Script
+Run the following script in Windows PowerShell to compute the HMAC-SHA256 signature and post a valid webhook:
+
+```powershell
+$secret = "whsec_8kQ2vN9xZmR7pL4tY6bJ3cF1dK5wA0hE"
+$targetUrl = "http://localhost:8000/api/v1/webhook"
+
+$body = @"
+{
+  "entity": "event",
+  "account_id": "acc_CFvOKjkTwf3GQy",
+  "event": "payment.dispute.created",
+  "contains": ["payment", "dispute"],
+  "payload": {
+    "payment": {
       "entity": {
-        "id": "disp_001",
-        "payment_id": "pay_XYZ1001",
-        "amount": 52976,
-        "reason_code": "chargeback",
+        "id": "pay_XYZ2003",
+        "entity": "payment",
+        "amount": 349900,
+        "currency": "INR",
+        "status": "captured",
+        "order_id": "ORD_2003",
+        "email": "friendly_fraud1@outlook.com",
+        "contact": "+919876543210",
+        "method": "card"
+      }
+    },
+    "dispute": {
+      "entity": {
+        "id": "disp_test_$(Get-Random)",
+        "entity": "dispute",
+        "payment_id": "pay_XYZ2003",
+        "amount": 349900,
+        "currency": "INR",
+        "amount_deducted": 0,
+        "reason_code": "fraudulent",
+        "status": "open",
         "phase": "chargeback"
       }
     }
+  }
+}
+"@
+
+# Compute HMAC-SHA256 Signature
+$hmac = [System.Security.Cryptography.HMACSHA256]::new([System.Text.Encoding]::UTF8.GetBytes($secret))
+$sigBytes = $hmac.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($body))
+$signature = -join ($sigBytes | ForEach-Object { "{0:x2}" -f $_ })
+
+# Send Webhook
+$response = Invoke-RestMethod -Method Post -Uri $targetUrl -Headers @{
+    "Content-Type" = "application/json"
+    "X-Razorpay-Signature" = $signature
+} -Body $body
+
+$response | ConvertTo-Json
+```
+
+*(To target the cloud server, change `$targetUrl = "https://safemerchant.onrender.com/api/v1/webhook"`).*
+
+---
+
+### Method 3: Linux / macOS cURL Command
+
+```bash
+SECRET="whsec_8kQ2vN9xZmR7pL4tY6bJ3cF1dK5wA0hE"
+TARGET_URL="http://localhost:8000/api/v1/webhook"
+DISPUTE_ID="disp_test_$RANDOM"
+
+BODY=$(cat <<EOF
+{
+  "entity": "event",
+  "account_id": "acc_CFvOKjkTwf3GQy",
+  "event": "payment.dispute.created",
+  "contains": ["payment", "dispute"],
+  "payload": {
+    "payment": {
+      "entity": {
+        "id": "pay_XYZ2003",
+        "entity": "payment",
+        "amount": 349900,
+        "currency": "INR",
+        "status": "captured",
+        "order_id": "ORD_2003",
+        "email": "friendly_fraud1@outlook.com",
+        "contact": "+919876543210",
+        "method": "card"
+      }
+    },
+    "dispute": {
+      "entity": {
+        "id": "${DISPUTE_ID}",
+        "entity": "dispute",
+        "payment_id": "pay_XYZ2003",
+        "amount": 349900,
+        "currency": "INR",
+        "amount_deducted": 0,
+        "reason_code": "fraudulent",
+        "status": "open",
+        "phase": "chargeback"
+      }
+    }
+  }
+}
+EOF
+)
+
+# Compute HMAC signature using openssl
+SIGNATURE=$(echo -n "$BODY" | openssl dgst -sha256 -hmac "$SECRET" | sed 's/^.* //')
+
+curl -X POST "$TARGET_URL" \
+  -H "Content-Type: application/json" \
+  -H "X-Razorpay-Signature: $SIGNATURE" \
+  -d "$BODY"
+```
+
+---
+
+### Method 4: Dev Endpoint (Automated Seeding + Internal Signing)
+You can call the development endpoint directly to insert matching merchant database rows and dispatch a signed webhook in a single HTTP call:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/dev/create-test-dispute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "amount_inr": 3499,
+    "item_description": "Nike Running Shoes - Size 9",
+    "delivery_status": "Delivered",
+    "customer_communication": "Received shoes yesterday, perfect fit.",
+    "is_2fa_verified": true,
+    "account_age_days": 180,
+    "reason_code": "chargeback"
   }'
 ```
 
-### 6. Chaos Test
+---
 
-```bash
-python -m tests.run_test_batch --url http://localhost:8000/api/v1/webhook --count 100
-```
+## Core API Endpoints
 
-## Architecture
-
-```
-Webhook → FastAPI → LangGraph Pipeline → Gate Decision
-                        │
-            ┌───────────┼───────────┐
-            ▼           ▼           ▼
-        Evidence    Triage &    Draft
-        Retrieval   Score       Response
-            │           │           │
-            └───────────┼───────────┘
-                        ▼
-                  Gate Decision
-              ┌─────────┼─────────┐
-              ▼         ▼         ▼
-          Auto       Human     Accept
-          Submit     Review    Loss
-```
-
-## Project Structure
-
-```
-backend/
-├── app/
-│   ├── main.py           # FastAPI app factory
-│   ├── config.py          # Pydantic Settings
-│   ├── agent/             # LangGraph state, nodes, graph, tools
-│   ├── db/                # SQLAlchemy models, engine, repository
-│   ├── schemas/           # Pydantic validation models
-│   ├── api/               # REST + WebSocket routes
-│   └── services/          # Dispute orchestration
-├── migrations/            # SQL DDL + seed data
-├── tests/                 # Chaos testing
-└── pyproject.toml         # Dependencies
-```
-
-## Metrics Backend
-
-SafeMerchant includes a production-grade metrics layer that is historical, queryable, auditable, and editable — **separate from the live operational state**.
-
-### Data Model
-
-| Table | Purpose | Mutability |
-|-------|---------|------------|
-| `dispute_events` | Append-only raw event log (every webhook payload verbatim) | **Immutable** — UPDATE/DELETE blocked by DB trigger |
-| `disputes` | Mutable operational record (current status, amount, reason, workflow) | Writable (system + human edits) |
-| `dispute_audit_log` | Append-only log of every manual edit to `disputes` | **Append-only** — one row per changed field per edit |
-| `dispute_metrics_daily` | Pre-aggregated daily metrics (one row per calendar day) | Upserted by metrics service |
-| `dispute_breakdowns` | Current-state breakdowns by dimension (reason_code, outcome, phase) | Full-refreshed on event ingestion |
-
-### Metrics Refresh Strategy
-
-```
-Webhook received
-  │
-  ├─ 1. INSERT into dispute_events (immutable, always first)
-  ├─ 2. INSERT/MERGE into disputes (with metrics columns)
-  ├─ 3. Incremental UPSERT to dispute_metrics_daily for today
-  │     (INSERT ... ON CONFLICT DO UPDATE — adds deltas)
-  ├─ 4. Full refresh of dispute_breakdowns
-  │     (DELETE + re-INSERT from disputes, single transaction)
-  └─ 5. WebSocket: broadcast { type: "metrics_stale", scope: "all" }
-```
-
-- **On ingestion**: +1 total disputes, +amount to at-risk
-- **On resolution**: Move from at-risk to won/lost, increment won/lost counters
-- **On human edit (PATCH)**: Refresh breakdowns only (daily metrics unaffected by single-field edits)
-- **Full recomputation**: Available via `recompute_daily_metrics_background(date)` for backfill scenarios
-
-### Metrics API
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/metrics/summary?from=&to=` | GET | Aggregated totals from `dispute_metrics_daily` |
-| `/api/v1/metrics/breakdown?by=reason_code\|outcome\|phase` | GET | Current breakdown from `dispute_breakdowns` |
-| `/api/v1/metrics/repeat-patterns` | GET | Repeat customer/email patterns |
-| `/api/v1/disputes/{id}` | PATCH | Human edit with transactional audit logging |
-| `/api/v1/disputes/{id}/audit` | GET | Audit trail for one dispute |
-
-### WebSocket Invalidation
-
-The WebSocket (`/ws/dashboard`) does **NOT** push metrics payloads. Instead, it sends a small invalidation signal:
-
-```json
-{ "type": "metrics_stale", "scope": "daily_summary" }
-```
-
-The frontend should react by invalidating the relevant cache key and refetching from the REST metrics endpoints. This keeps the socket cheap and keeps metrics queries (date ranges, filters, pagination) in request/response APIs where they belong.
-
-### Audit Trail
-
-Every human edit via `PATCH /disputes/{id}` writes to `dispute_audit_log` in the **same DB transaction** as the `disputes` update. There is no code path that modifies a dispute via the edit endpoint without producing an audit row.
-
-### Running the Migration
-
-```bash
-psql -U postgres -d safemerchant -f migrations/002_metrics_schema.sql
-```
+| Method | Path | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/v1/webhook` | Ingests Razorpay webhook, validates HMAC, returns HTTP 202 |
+| `GET` | `/api/v1/disputes` | Lists historical disputes with review context |
+| `GET` | `/api/v1/disputes/{id}` | Gets dispute details, evidence status, and audit history |
+| `POST` | `/api/v1/disputes/{id}/review` | Submits operator review decision (`accept`/`reject`) |
+| `POST` | `/api/v1/disputes/{id}/retry-evidence` | Retries failed evidence generation job |
+| `GET` | `/api/v1/disputes/{id}/evidence-url` | Returns 1-hour signed Supabase CDN URL for evidence PDF |
+| `PATCH` | `/api/v1/disputes/{id}` | Manual field update with transactional audit log entry |
+| `GET` | `/api/v1/disputes/{id}/audit` | Fetches complete audit trail for a dispute |
+| `GET` | `/api/v1/metrics/summary` | Aggregated financial metrics for date range |
+| `GET` | `/api/v1/metrics/breakdown` | Current breakdown by reason_code, outcome, or phase |
+| `GET` | `/api/v1/metrics/repeat-patterns` | Flags repeated customer emails across disputes |
+| `POST` | `/api/v1/dev/create-test-dispute` | Constructs synthetic records and dispatches signed webhook |
+| `DELETE` | `/api/v1/admin/reset` | Clears all dispute tables and purges Supabase storage bucket |
+| `GET` | `/api/v1/health` | Backend health probe |
+| `WS` | `/ws/dashboard` | Real-time WebSocket connection for live agent updates |

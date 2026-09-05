@@ -15,7 +15,7 @@ SafeMerchant is an autonomous, defense-only agentic risk management platform des
 
 > **Don't want to set up Python, PostgreSQL, and environment variables locally?**  
 > A live backend instance is currently deployed and running in the cloud at **`https://safemerchant.onrender.com`**.  
-> You can skip the backend setup entirely, run **only the Flutter frontend**, open **Developer Options** in the app (default PIN: `1234`), and toggle the environment switch to **Cloud Server**. The dashboard will immediately stream live disputes and WebSocket events from the hosted cloud backend.
+> You can skip the backend setup entirely, run **only the Flutter frontend**, open **Developer Options** in the app (default passkey: `admin`), and toggle the environment switch to **Cloud Server**. The dashboard will immediately stream live disputes and WebSocket events from the hosted cloud backend.
 
 ---
 
@@ -267,7 +267,7 @@ The Flutter frontend includes a built-in **Developer Options** screen accessible
 
 ### Accessing Developer Options
 1. In the Flutter dashboard sidebar, click **Developer Options**.
-2. A security gatekeeper dialog will prompt for a PIN. Enter the default evaluation PIN: **`1234`**.
+2. A security gatekeeper dialog will prompt for a passkey. Enter the default evaluation passkey: **`admin`**.
 
 ### Capabilities Provided in Developer Options:
 1. **Live Environment Switcher**:
@@ -283,22 +283,16 @@ The Flutter frontend includes a built-in **Developer Options** screen accessible
 
 ---
 
-## 6. Testing & Webhook Ingestion Workflows
+## 6. Testing & Dispute Simulation Workflows
 
-### 6.1 Automated Backend Tests
+Dispute test scenarios can be triggered directly through the UI (recommended) or via signed command-line scripts.
 
-From the `backend/` directory, run the automated test suite:
+### 6.1 Dispatching Disputes via Frontend UI (Recommended)
 
-```bash
-pytest
-```
-
-The test suite verifies:
-- **Idempotency**: Single-statement atomic upsert (`xmax = 0`) and duplicate webhook suppression.
-- **Webhook Ingestion**: HMAC-SHA256 signature verification and payload validation.
-- **Evidence Compilation**: In-memory ReportLab PDF rendering for delivery proofs, chat transcripts, and activity logs.
-- **Submission Flow**: Razorpay Documents API upload and sandbox limitation classification (`contest_expected_failure`).
-- **Worker Queue**: Concurrency throttling (`asyncio.Semaphore`) and row-locking (`FOR UPDATE SKIP LOCKED`).
+1. Open the Flutter dashboard and navigate to **Developer Options** in the sidebar.
+2. Enter passkey: **`admin`**.
+3. Use the **Synthetic Scenario Builder** to configure transaction amount, delivery status, customer chat transcripts, 2FA, and dispute reason code.
+4. Click **Dispatch Test Dispute**. The backend automatically seeds operational database records, generates a valid HMAC-SHA256 signature, and injects the webhook into the processing pipeline.
 
 ---
 
